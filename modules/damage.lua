@@ -2,6 +2,9 @@
 -- Wires DAMAGE events from eventbus to data store
 
 local P = Parsec
+if not P or not P.eventBus then return end
+
+table.insert(P._loadedFiles, "damage")
 
 local function OnDamage(data)
     if not P.dataStore then return end

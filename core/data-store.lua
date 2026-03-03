@@ -2,6 +2,9 @@
 -- Player registry, per-player accumulators, segment management
 
 local P = Parsec
+if not P then return end
+
+table.insert(P._loadedFiles, "data-store")
 
 P.dataStore = {}
 local DS = P.dataStore

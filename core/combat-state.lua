@@ -2,6 +2,9 @@
 -- Tracks combat start/end, encounter duration, segment management
 
 local P = Parsec
+if not P then return end
+
+table.insert(P._loadedFiles, "combat-state")
 
 P.combatState = {}
 local CS = P.combatState

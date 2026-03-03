@@ -2,6 +2,9 @@
 -- Bar display, sorting, view switching, tooltips
 
 local P = Parsec
+if not P then return end
+
+table.insert(P._loadedFiles, "window")
 
 -- Window state
 local W = {}
@@ -197,7 +200,7 @@ end
 ---------------------------------------------------------------------------
 
 function P.UpdateWindow()
-    if not ParsecWindow:IsVisible() then return end
+    if not ParsecWindow or not ParsecWindow:IsVisible() then return end
     local ds = P.dataStore
     if not ds then return end
 
@@ -321,6 +324,7 @@ end
 ---------------------------------------------------------------------------
 
 function P.OnWindowResize()
+    if not ParsecWindow then return end
     -- Recalculate bar container size
     local w = ParsecWindow:GetWidth()
     local h = ParsecWindow:GetHeight()
@@ -335,6 +339,10 @@ end
 ---------------------------------------------------------------------------
 
 function P.ToggleWindow()
+    if not ParsecWindow then
+        P.Print("|cffff4444ParsecWindow frame not found!|r")
+        return
+    end
     if ParsecWindow:IsVisible() then
         ParsecWindow:Hide()
     else
@@ -347,35 +355,37 @@ end
 -- OnUpdate Timer for Live Refresh
 ---------------------------------------------------------------------------
 
-ParsecWindow:SetScript("OnUpdate", function()
-    local dt = arg1 or 0.016
-    W.updateTimer = W.updateTimer + dt
-    if W.updateTimer >= W.updateInterval then
-        W.updateTimer = 0
+if ParsecWindow then
+    ParsecWindow:SetScript("OnUpdate", function()
+        local dt = arg1 or 0.016
+        W.updateTimer = W.updateTimer + dt
+        if W.updateTimer >= W.updateInterval then
+            W.updateTimer = 0
+            P.UpdateWindow()
+        end
+    end)
+
+    -- Title bar right-click = cycle view, middle-click = cycle segment
+    ParsecWindow:SetScript("OnMouseDown", function()
+        if arg1 == "LeftButton" then
+            ParsecWindow:StartMoving()
+        elseif arg1 == "RightButton" then
+            P.CycleView()
+        elseif arg1 == "MiddleButton" then
+            P.CycleSegment()
+        end
+    end)
+
+    -- Scroll wheel = scroll bar list
+    ParsecWindow:EnableMouseWheel(true)
+    ParsecWindow:SetScript("OnMouseWheel", function()
+        -- arg1: 1 = up, -1 = down
+        W.scrollOffset = W.scrollOffset - (arg1 or 0)
+        if W.scrollOffset < 0 then W.scrollOffset = 0 end
         P.UpdateWindow()
-    end
-end)
+    end)
 
--- Title bar right-click = cycle view, middle-click = cycle segment
-ParsecWindow:SetScript("OnMouseDown", function()
-    if arg1 == "LeftButton" then
-        ParsecWindow:StartMoving()
-    elseif arg1 == "RightButton" then
-        P.CycleView()
-    elseif arg1 == "MiddleButton" then
-        P.CycleSegment()
-    end
-end)
-
--- Scroll wheel = scroll bar list
-ParsecWindow:EnableMouseWheel(true)
-ParsecWindow:SetScript("OnMouseWheel", function()
-    -- arg1: 1 = up, -1 = down
-    W.scrollOffset = W.scrollOffset - (arg1 or 0)
-    if W.scrollOffset < 0 then W.scrollOffset = 0 end
-    P.UpdateWindow()
-end)
-
--- Set resize bounds
-ParsecWindow:SetMinResize(150, 80)
-ParsecWindow:SetMaxResize(400, 600)
+    -- Set resize bounds
+    ParsecWindow:SetMinResize(150, 80)
+    ParsecWindow:SetMaxResize(400, 600)
+end

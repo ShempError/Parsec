@@ -2,6 +2,9 @@
 -- Wires HEAL events from eventbus to data store
 
 local P = Parsec
+if not P or not P.eventBus then return end
+
+table.insert(P._loadedFiles, "healing")
 
 local function OnHeal(data)
     if not P.dataStore then return end

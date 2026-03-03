@@ -2,6 +2,9 @@
 -- Event dumping, stats, diagnostics
 
 local P = Parsec
+if not P then return end
+
+table.insert(P._loadedFiles, "debug")
 
 P.debugMode = false
 

@@ -2,6 +2,9 @@
 -- Receives Nampower + SuperWoW events, normalizes, dispatches to modules
 
 local P = Parsec
+if not P then return end
+
+table.insert(P._loadedFiles, "eventbus")
 
 P.eventBus = CreateFrame("Frame", "ParsecEventBus")
 local bus = P.eventBus

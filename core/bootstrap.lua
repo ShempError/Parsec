@@ -2,6 +2,14 @@
 -- Addon initialization, dependency checks, slash commands, CVar setup
 
 local P = Parsec
+if not P then
+    if DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff4444[Parsec] FATAL: Parsec global is nil in bootstrap.lua! Earlier file failed to load.|r")
+    end
+    return
+end
+
+table.insert(P._loadedFiles, "bootstrap")
 
 ---------------------------------------------------------------------------
 -- Dependency Check
@@ -65,65 +73,91 @@ SLASH_PARSEC1 = "/parsec"
 SLASH_PARSEC2 = "/pc"
 
 SlashCmdList["PARSEC"] = function(msg)
+    -- Use Parsec global directly (not upvalue P) for resilience
+    local pp = Parsec
+    if not pp then
+        if DEFAULT_CHAT_FRAME then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff4444[Parsec] Addon not loaded properly. Check for errors above.|r")
+        end
+        return
+    end
+
     msg = string.lower(msg or "")
 
     if msg == "" or msg == "toggle" then
-        P.ToggleWindow()
+        pp.ToggleWindow()
 
     elseif msg == "show" then
-        ParsecWindow:Show()
-        P.UpdateWindow()
+        if ParsecWindow then
+            ParsecWindow:Show()
+            pp.UpdateWindow()
+        end
 
     elseif msg == "hide" then
-        ParsecWindow:Hide()
+        if ParsecWindow then
+            ParsecWindow:Hide()
+        end
 
     elseif msg == "reset" then
-        P.dataStore:Reset()
-        P.UpdateWindow()
+        if pp.dataStore then
+            pp.dataStore:Reset()
+            pp.UpdateWindow()
+        end
 
     elseif msg == "debug" then
-        P.ToggleDebug()
+        pp.ToggleDebug()
 
     elseif msg == "stats" then
-        P.ShowStats()
+        pp.ShowStats()
+
+    elseif msg == "diag" then
+        -- Diagnostic: show which files loaded
+        pp.Print("--- Load Diagnostics ---")
+        pp.Print("Loaded files: " .. table.concat(pp._loadedFiles, ", "))
+        pp.Print("ParsecWindow: " .. (ParsecWindow and "OK" or "|cffff4444NIL|r"))
+        pp.Print("eventBus: " .. (pp.eventBus and "OK" or "|cffff4444NIL|r"))
+        pp.Print("combatState: " .. (pp.combatState and "OK" or "|cffff4444NIL|r"))
+        pp.Print("dataStore: " .. (pp.dataStore and "OK" or "|cffff4444NIL|r"))
+        pp.Print("window: " .. (pp.window and "OK" or "|cffff4444NIL|r"))
 
     elseif string.sub(msg, 1, 6) == "events" then
         local count = tonumber(string.sub(msg, 8)) or 10
-        P.ShowEvents(count)
+        pp.ShowEvents(count)
 
     elseif msg == "damage" or msg == "dmg" then
-        P.window.viewType = "damage"
-        P.UpdateWindow()
+        pp.window.viewType = "damage"
+        pp.UpdateWindow()
 
     elseif msg == "dps" then
-        P.window.viewType = "dps"
-        P.UpdateWindow()
+        pp.window.viewType = "dps"
+        pp.UpdateWindow()
 
     elseif msg == "healing" or msg == "heal" then
-        P.window.viewType = "healing"
-        P.UpdateWindow()
+        pp.window.viewType = "healing"
+        pp.UpdateWindow()
 
     elseif msg == "hps" then
-        P.window.viewType = "hps"
-        P.UpdateWindow()
+        pp.window.viewType = "hps"
+        pp.UpdateWindow()
 
     elseif msg == "dump" then
-        P.DumpArgs("ManualDump")
+        pp.DumpArgs("ManualDump")
 
     elseif msg == "help" then
-        P.Print("--- Parsec Commands ---")
-        P.Print("/parsec - Toggle window")
-        P.Print("/parsec reset - Reset all data")
-        P.Print("/parsec debug - Toggle debug output")
-        P.Print("/parsec stats - Show statistics")
-        P.Print("/parsec events [n] - Show last N events")
-        P.Print("/parsec dmg|dps|heal|hps - Switch view")
-        P.Print("/parsec dump - Dump current event args")
-        P.Print("Right-click title = cycle view")
-        P.Print("Middle-click title = cycle segment")
-        P.Print("Scroll wheel = scroll bars")
+        pp.Print("--- Parsec Commands ---")
+        pp.Print("/parsec - Toggle window")
+        pp.Print("/parsec reset - Reset all data")
+        pp.Print("/parsec debug - Toggle debug output")
+        pp.Print("/parsec stats - Show statistics")
+        pp.Print("/parsec diag - Load diagnostics")
+        pp.Print("/parsec events [n] - Show last N events")
+        pp.Print("/parsec dmg|dps|heal|hps - Switch view")
+        pp.Print("/parsec dump - Dump current event args")
+        pp.Print("Right-click title = cycle view")
+        pp.Print("Middle-click title = cycle segment")
+        pp.Print("Scroll wheel = scroll bars")
     else
-        P.Print("Unknown command: " .. msg .. " (try /parsec help)")
+        pp.Print("Unknown command: " .. msg .. " (try /parsec help)")
     end
 end
 
@@ -136,21 +170,30 @@ initFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 initFrame:SetScript("OnEvent", function()
     initFrame:UnregisterEvent("PLAYER_ENTERING_WORLD")
 
-    P.Print("v" .. P.VERSION .. " loaded.")
+    -- Use Parsec global directly
+    local pp = Parsec
+    if not pp then return end
+
+    pp.Print("v" .. pp.VERSION .. " loaded.")
+    pp.Print("Files: " .. table.concat(pp._loadedFiles, ", "))
 
     -- Check dependencies
     local depsOK = CheckDependencies()
     if depsOK then
-        P.Print("|cff00ff00SuperWoW + Nampower detected.|r")
+        pp.Print("|cff00ff00SuperWoW + Nampower detected.|r")
     end
 
     -- Setup Nampower CVars
     SetupCVars()
 
     -- Initial class scan
-    P.ScanGroupClasses()
+    pp.ScanGroupClasses()
 
     -- Show window by default
-    ParsecWindow:Show()
-    P.UpdateWindow()
+    if ParsecWindow then
+        ParsecWindow:Show()
+        pp.UpdateWindow()
+    else
+        pp.Print("|cffff4444ParsecWindow frame not created! Check window.xml|r")
+    end
 end)

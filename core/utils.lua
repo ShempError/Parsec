@@ -1,10 +1,11 @@
 -- Parsec: Shared utilities
 -- Class colors, formatting, helpers
 
-Parsec = Parsec or {}
+Parsec = {}
 local P = Parsec
 
 P.VERSION = "0.1.0"
+P._loadedFiles = { "utils" }
 
 -- Class colors (same as RAID_CLASS_COLORS but guaranteed available)
 P.CLASS_COLORS = {
