@@ -24,8 +24,8 @@ local function CheckDependencies()
         ok = false
     end
 
-    -- Check Nampower (check for known CVar)
-    if GetCVar and GetCVar("NP_EnableSpellDamageEvents") == nil then
+    -- Check Nampower (GetNampowerVersion exists when loaded)
+    if not GetNampowerVersion then
         P.Print("|cffff4444Nampower not detected!|r Parsec requires Nampower to function.")
         ok = false
     end
@@ -40,12 +40,11 @@ end
 local function SetupCVars()
     if not SetCVar then return end
 
+    -- Only CVars that are disabled by default and needed by Parsec
+    -- Spell damage + miss + buff events are always active (no CVar needed)
     local cvars = {
-        "NP_EnableSpellDamageEvents",
         "NP_EnableAutoAttackEvents",
-        "NP_EnableSpellMissEvents",
         "NP_EnableSpellHealEvents",
-        "NP_EnableBuffEvents",
     }
 
     local enabled = 0

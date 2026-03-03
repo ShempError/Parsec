@@ -28,7 +28,7 @@ function bus:Fire(eventType, data)
     self.eventCount = self.eventCount + 1
 
     -- Store in ring buffer for debug
-    self.lastEventsIdx = (self.lastEventsIdx % self.lastEventsMax) + 1
+    self.lastEventsIdx = math.mod(self.lastEventsIdx, self.lastEventsMax) + 1
     self.lastEvents[self.lastEventsIdx] = data
 
     local callbacks = self.listeners[eventType]
@@ -53,199 +53,269 @@ end
 -- "CAST"    = { time, source, target, sourceGUID, targetGUID, spellID, spellName, castType, duration }
 
 ---------------------------------------------------------------------------
--- Nampower Event Handlers
+-- GUID -> Name Resolution
 ---------------------------------------------------------------------------
 
--- Helper: extract common spell damage fields from Nampower event args
--- Nampower events pass data through arg1..argN globals
--- We need to figure out the exact arg layout from KB docs
+P.guidNames = {}
+
+function P.ResolveName(guid)
+    if not guid then return nil end
+
+    -- Check cache
+    local cached = P.guidNames[guid]
+    if cached then return cached end
+
+    -- SuperWoW: UnitName accepts GUIDs directly
+    local name = UnitName(guid)
+    if name then
+        P.guidNames[guid] = name
+        return name
+    end
+
+    return nil
+end
+
+---------------------------------------------------------------------------
+-- Hit Info Helpers
+---------------------------------------------------------------------------
+
+local MISS_TYPES = {
+    [1] = "MISS",
+    [2] = "RESIST",
+    [3] = "DODGE",
+    [4] = "PARRY",
+    [5] = "BLOCK",
+    [6] = "EVADE",
+    [7] = "IMMUNE",
+    [8] = "IMMUNE",
+    [9] = "DEFLECT",
+    [10] = "ABSORB",
+    [11] = "REFLECT",
+}
+
+-- Check if hitInfo bitmask has critical hit flag (HITINFO_CRITICALHIT = 0x2)
+local function IsCritHit(hitInfo)
+    if not hitInfo then return false end
+    hitInfo = tonumber(hitInfo) or 0
+    -- Check bit 1 (0x2) in Lua 5.0 without bit lib
+    return math.mod(math.floor(hitInfo / 2), 2) == 1
+end
+
+---------------------------------------------------------------------------
+-- Nampower Event Handlers (arg layouts from turtle-wow-kb)
+---------------------------------------------------------------------------
 
 -- SPELL_DAMAGE_EVENT_SELF / SPELL_DAMAGE_EVENT_OTHER
+-- arg1=targetGuid, arg2=casterGuid, arg3=spellId, arg4=amount,
+-- arg5=mitigationStr, arg6=hitInfo, arg7=spellSchool, arg8=effectAuraStr
 local function OnSpellDamage()
-    -- Nampower SPELL_DAMAGE_EVENT args (from KB):
-    -- We need to discover exact arg layout. For now use a safe approach
-    -- and log everything in debug mode for discovery
+    local casterGuid = arg2
+    local targetGuid = arg1
+    local spellID = arg3
+    local amount = tonumber(arg4) or 0
+    local hitInfo = tonumber(arg6) or 0
+    local school = tonumber(arg7) or 0
+
+    local source = P.ResolveName(casterGuid) or casterGuid or "?"
+    local target = P.ResolveName(targetGuid) or targetGuid or "?"
+    local crit = IsCritHit(hitInfo)
+
+    local spellName = "?"
+    if spellID and SpellInfo then
+        local name = SpellInfo(spellID)
+        if name then spellName = name end
+    end
+
     local data = {
         time = GetTime(),
         type = "DAMAGE",
-        source = arg1 or "?",
-        target = arg2 or "?",
-        sourceGUID = arg3,
-        targetGUID = arg4,
-        spellID = arg5,
-        spellName = arg6 or "?",
-        amount = tonumber(arg7) or 0,
-        school = tonumber(arg8) or 0,
-        crit = (arg9 == 1 or arg9 == true),
+        source = source,
+        target = target,
+        sourceGUID = casterGuid,
+        targetGUID = targetGuid,
+        spellID = spellID,
+        spellName = spellName,
+        amount = amount,
+        school = school,
+        crit = crit,
+        isPet = false,
+        petOwner = nil,
     }
 
-    -- Try to get spell name from SpellInfo if we have ID
-    if data.spellID and SpellInfo then
-        local name = SpellInfo(data.spellID)
-        if name then
-            data.spellName = name
-        end
-    end
-
-    -- Pet owner detection
-    data.isPet = false
-    data.petOwner = nil
-    if data.source then
-        local owner = P.GetPetOwner(data.source)
-        if owner then
-            data.isPet = true
-            data.petOwner = owner
-        end
-    end
-
-    P.Debug("DMG: " .. (data.source or "?") .. " -> " .. (data.target or "?") ..
-            " [" .. (data.spellName or "?") .. "] " .. data.amount ..
-            (data.crit and " CRIT" or ""))
+    P.Debug("DMG: " .. source .. " -> " .. target ..
+            " [" .. spellName .. "] " .. amount ..
+            (crit and " CRIT" or ""))
 
     bus:Fire("DAMAGE", data)
 end
 
 -- AUTO_ATTACK_SELF / AUTO_ATTACK_OTHER
+-- arg1=attackerGuid, arg2=targetGuid, arg3=totalDamage,
+-- arg4=hitInfo, arg5=victimState, arg6=subDamageCount,
+-- arg7=blockedAmount, arg8=totalAbsorb, arg9=totalResist
 local function OnAutoAttack()
+    local attackerGuid = arg1
+    local targetGuid = arg2
+    local amount = tonumber(arg3) or 0
+    local hitInfo = tonumber(arg4) or 0
+
+    local source = P.ResolveName(attackerGuid) or attackerGuid or "?"
+    local target = P.ResolveName(targetGuid) or targetGuid or "?"
+    local crit = IsCritHit(hitInfo)
+
     local data = {
         time = GetTime(),
         type = "DAMAGE",
-        source = arg1 or "?",
-        target = arg2 or "?",
-        sourceGUID = arg3,
-        targetGUID = arg4,
+        source = source,
+        target = target,
+        sourceGUID = attackerGuid,
+        targetGUID = targetGuid,
         spellID = 0,
         spellName = "Auto Attack",
-        amount = tonumber(arg5) or 0,
+        amount = amount,
         school = 0,
-        crit = (arg6 == 1 or arg6 == true),
+        crit = crit,
+        isPet = false,
+        petOwner = nil,
     }
 
-    data.isPet = false
-    data.petOwner = nil
-    if data.source then
-        local owner = P.GetPetOwner(data.source)
-        if owner then
-            data.isPet = true
-            data.petOwner = owner
-        end
-    end
-
-    P.Debug("MELEE: " .. (data.source or "?") .. " -> " .. (data.target or "?") ..
-            " " .. data.amount .. (data.crit and " CRIT" or ""))
+    P.Debug("MELEE: " .. source .. " -> " .. target ..
+            " " .. amount .. (crit and " CRIT" or ""))
 
     bus:Fire("DAMAGE", data)
 end
 
--- SPELL_HEAL_*
+-- SPELL_HEAL_BY_SELF / SPELL_HEAL_ON_SELF / SPELL_HEAL_BY_OTHER
+-- arg1=targetGuid, arg2=casterGuid, arg3=spellId, arg4=amount,
+-- arg5=critical (boolean), arg6=periodic (boolean)
 local function OnSpellHeal()
-    local data = {
-        time = GetTime(),
-        type = "HEAL",
-        source = arg1 or "?",
-        target = arg2 or "?",
-        sourceGUID = arg3,
-        targetGUID = arg4,
-        spellID = arg5,
-        spellName = arg6 or "?",
-        amount = tonumber(arg7) or 0,
-        school = tonumber(arg8) or 0,
-        crit = (arg9 == 1 or arg9 == true),
-        overheal = 0,
-    }
+    local targetGuid = arg1
+    local casterGuid = arg2
+    local spellID = arg3
+    local amount = tonumber(arg4) or 0
+    local crit = (arg5 == 1 or arg5 == true)
 
-    if data.spellID and SpellInfo then
-        local name = SpellInfo(data.spellID)
-        if name then
-            data.spellName = name
-        end
+    local source = P.ResolveName(casterGuid) or casterGuid or "?"
+    local target = P.ResolveName(targetGuid) or targetGuid or "?"
+
+    local spellName = "?"
+    if spellID and SpellInfo then
+        local name = SpellInfo(spellID)
+        if name then spellName = name end
     end
 
-    -- Calculate overheal if target is in our group
-    local targetUnit = P.FindUnitByName(data.target)
-    if targetUnit then
-        local hp = UnitHealth(targetUnit)
-        local hpMax = UnitHealthMax(targetUnit)
+    -- Overheal: check target health via SuperWoW GUID support
+    local overheal = 0
+    if targetGuid then
+        local hp = UnitHealth(targetGuid)
+        local hpMax = UnitHealthMax(targetGuid)
         if hp and hpMax and hpMax > 0 then
             local deficit = hpMax - hp
-            if data.amount > deficit then
-                data.overheal = data.amount - deficit
+            if amount > deficit and deficit >= 0 then
+                overheal = amount - deficit
             end
         end
     end
 
-    P.Debug("HEAL: " .. (data.source or "?") .. " -> " .. (data.target or "?") ..
-            " [" .. (data.spellName or "?") .. "] " .. data.amount ..
-            (data.overheal > 0 and (" OH:" .. data.overheal) or ""))
+    local data = {
+        time = GetTime(),
+        type = "HEAL",
+        source = source,
+        target = target,
+        sourceGUID = casterGuid,
+        targetGUID = targetGuid,
+        spellID = spellID,
+        spellName = spellName,
+        amount = amount,
+        school = 0,
+        crit = crit,
+        overheal = overheal,
+    }
+
+    P.Debug("HEAL: " .. source .. " -> " .. target ..
+            " [" .. spellName .. "] " .. amount ..
+            (overheal > 0 and (" OH:" .. overheal) or ""))
 
     bus:Fire("HEAL", data)
 end
 
--- SPELL_MISS_*
+-- SPELL_MISS_SELF / SPELL_MISS_OTHER
+-- arg1=casterGuid, arg2=targetGuid, arg3=spellId, arg4=missInfo
 local function OnSpellMiss()
+    local casterGuid = arg1
+    local targetGuid = arg2
+    local spellID = arg3
+    local missInfo = tonumber(arg4) or 0
+
+    local source = P.ResolveName(casterGuid) or casterGuid or "?"
+    local target = P.ResolveName(targetGuid) or targetGuid or "?"
+    local missType = MISS_TYPES[missInfo] or "MISS"
+
+    local spellName = "?"
+    if spellID and SpellInfo then
+        local name = SpellInfo(spellID)
+        if name then spellName = name end
+    end
+
     local data = {
         time = GetTime(),
         type = "MISS",
-        source = arg1 or "?",
-        target = arg2 or "?",
-        sourceGUID = arg3,
-        targetGUID = arg4,
-        spellID = arg5,
-        spellName = arg6 or "?",
-        missType = arg7 or "MISS",
-        amount = tonumber(arg8) or 0,
+        source = source,
+        target = target,
+        sourceGUID = casterGuid,
+        targetGUID = targetGuid,
+        spellID = spellID,
+        spellName = spellName,
+        missType = missType,
+        amount = 0,
     }
 
-    if data.spellID and SpellInfo then
-        local name = SpellInfo(data.spellID)
-        if name then
-            data.spellName = name
-        end
-    end
-
-    P.Debug("MISS: " .. (data.source or "?") .. " -> " .. (data.target or "?") ..
-            " [" .. (data.spellName or "?") .. "] " .. (data.missType or "?"))
+    P.Debug("MISS: " .. source .. " -> " .. target ..
+            " [" .. spellName .. "] " .. missType)
 
     bus:Fire("MISS", data)
 end
 
 -- BUFF_ADDED_* / BUFF_REMOVED_*
-local function OnBuffAdded()
-    local data = {
-        time = GetTime(),
-        type = "BUFF",
-        target = arg1 or "?",
-        spellID = arg2,
-        spellName = arg3 or "?",
-        gained = true,
-    }
-    bus:Fire("BUFF", data)
-end
+-- arg1=guid, arg2=luaSlot, arg3=spellId, arg4=stackCount,
+-- arg5=auraLevel, arg6=auraSlot, arg7=state (0=added, 1=removed, 2=modified)
+local function OnBuffChanged()
+    local guid = arg1
+    local spellID = arg3
+    local state = tonumber(arg7) or 0
 
-local function OnBuffRemoved()
+    local target = P.ResolveName(guid) or guid or "?"
+
+    local spellName = "?"
+    if spellID and SpellInfo then
+        local name = SpellInfo(spellID)
+        if name then spellName = name end
+    end
+
     local data = {
         time = GetTime(),
         type = "BUFF",
-        target = arg1 or "?",
-        spellID = arg2,
-        spellName = arg3 or "?",
-        gained = false,
+        target = target,
+        spellID = spellID,
+        spellName = spellName,
+        gained = (state == 0),
     }
     bus:Fire("BUFF", data)
 end
 
 -- SuperWoW: UNIT_CASTEVENT
+-- arg1=casterGUID, arg2=targetGUID, arg3=castType, arg4=spellID, arg5=duration(ms)
 local function OnUnitCastEvent()
     local data = {
         time = GetTime(),
         type = "CAST",
         sourceGUID = arg1,
         targetGUID = arg2,
-        castType = arg3,    -- START, CAST, FAIL, CHANNEL, MAINHAND, OFFHAND
+        castType = arg3,
         spellID = arg4,
-        duration = arg5,    -- cast duration in ms
-        source = "?",
-        target = "?",
+        duration = arg5,
+        source = P.ResolveName(arg1) or "?",
+        target = P.ResolveName(arg2) or "?",
         spellName = "?",
     }
 
@@ -259,29 +329,28 @@ local function OnUnitCastEvent()
     bus:Fire("CAST", data)
 end
 
--- SuperWoW: UNIT_DIED
+-- UNIT_DIED (Nampower: arg1=guid)
 local function OnUnitDied()
+    local guid = arg1
+    local name = P.ResolveName(guid) or "?"
+
     local data = {
         time = GetTime(),
         type = "DEATH",
-        name = arg1 or "?",
-        guid = arg2,
+        name = name,
+        guid = guid,
     }
 
-    P.Debug("DEATH: " .. (data.name or "?"))
+    P.Debug("DEATH: " .. name)
     bus:Fire("DEATH", data)
 end
 
 ---------------------------------------------------------------------------
--- Find unit ID by name (for overheal calculation)
+-- Find unit ID by name (backward compat, used by some overheal calcs)
 ---------------------------------------------------------------------------
 function P.FindUnitByName(name)
     if not name then return nil end
-
-    -- Check player
     if UnitName("player") == name then return "player" end
-
-    -- Check raid
     local numRaid = GetNumRaidMembers()
     if numRaid > 0 then
         for i = 1, numRaid do
@@ -290,7 +359,6 @@ function P.FindUnitByName(name)
             end
         end
     else
-        -- Check party
         local numParty = GetNumPartyMembers()
         for i = 1, numParty do
             if UnitName("party" .. i) == name then
@@ -305,17 +373,25 @@ end
 -- Register WoW events
 ---------------------------------------------------------------------------
 
--- Nampower events
+-- Nampower damage events (always active, no CVar needed)
 bus:RegisterEvent("SPELL_DAMAGE_EVENT_SELF")
 bus:RegisterEvent("SPELL_DAMAGE_EVENT_OTHER")
+
+-- Nampower auto attack events (require NP_EnableAutoAttackEvents CVar)
 bus:RegisterEvent("AUTO_ATTACK_SELF")
 bus:RegisterEvent("AUTO_ATTACK_OTHER")
+
+-- Nampower heal events (require NP_EnableSpellHealEvents CVar)
 bus:RegisterEvent("SPELL_HEAL_BY_SELF")
 bus:RegisterEvent("SPELL_HEAL_ON_SELF")
 bus:RegisterEvent("SPELL_HEAL_BY_OTHER")
 bus:RegisterEvent("SPELL_HEAL_ON_OTHER")
+
+-- Nampower miss events
 bus:RegisterEvent("SPELL_MISS_SELF")
 bus:RegisterEvent("SPELL_MISS_OTHER")
+
+-- Buff events (always active, no CVar needed)
 bus:RegisterEvent("BUFF_ADDED_SELF")
 bus:RegisterEvent("BUFF_ADDED_OTHER")
 bus:RegisterEvent("BUFF_REMOVED_SELF")
@@ -335,6 +411,11 @@ bus:RegisterEvent("PLAYER_REGEN_DISABLED")
 bus:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 bus:SetScript("OnEvent", function()
+    -- Raw arg dump when debug mode is on
+    if P.debugMode then
+        P.DumpArgs(event)
+    end
+
     -- Nampower damage
     if event == "SPELL_DAMAGE_EVENT_SELF" or event == "SPELL_DAMAGE_EVENT_OTHER" then
         OnSpellDamage()
@@ -351,10 +432,9 @@ bus:SetScript("OnEvent", function()
         OnSpellMiss()
 
     -- Buff tracking
-    elseif event == "BUFF_ADDED_SELF" or event == "BUFF_ADDED_OTHER" then
-        OnBuffAdded()
-    elseif event == "BUFF_REMOVED_SELF" or event == "BUFF_REMOVED_OTHER" then
-        OnBuffRemoved()
+    elseif event == "BUFF_ADDED_SELF" or event == "BUFF_ADDED_OTHER"
+        or event == "BUFF_REMOVED_SELF" or event == "BUFF_REMOVED_OTHER" then
+        OnBuffChanged()
 
     -- SuperWoW
     elseif event == "UNIT_CASTEVENT" then

@@ -94,7 +94,7 @@
                 </Anchors>
                 <Layers>
                     <Layer level="OVERLAY">
-                        <Texture name="ParsecWindowResizeTex" file="Interface\ChatFrame\UI-ChatIM-SizeGrabber-Up">
+                        <Texture name="ParsecWindowResizeTex" file="Interface\AddOns\Parsec\textures\ResizeGrip">
                             <Size>
                                 <AbsDimension x="16" y="16"/>
                             </Size>

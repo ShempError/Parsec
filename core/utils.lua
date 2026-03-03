@@ -75,9 +75,9 @@ function P.HashColor(name)
     for i = 1, string.len(name) do
         hash = hash + string.byte(name, i) * (i * 17)
     end
-    local r = (hash % 255) / 255
-    local g = ((hash * 7) % 255) / 255
-    local b = ((hash * 13) % 255) / 255
+    local r = math.mod(hash, 255) / 255
+    local g = math.mod(hash * 7, 255) / 255
+    local b = math.mod(hash * 13, 255) / 255
     -- Brighten: ensure minimum brightness
     local minBright = 0.3
     r = minBright + r * (1 - minBright)

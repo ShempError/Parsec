@@ -56,7 +56,7 @@ function P.ShowEvents(count)
 
     for i = 0, max - 1 do
         if shown >= count then break end
-        local pos = ((idx - 1 - i) % max) + 1
+        local pos = math.mod(idx - 1 - i, max) + 1
         local ev = bus.lastEvents[pos]
         if ev then
             local line = (ev.type or "?") .. ": "

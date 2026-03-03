@@ -290,7 +290,7 @@ function P.CycleView()
     local views = { "damage", "dps", "healing", "hps" }
     for i = 1, table.getn(views) do
         if views[i] == W.viewType then
-            W.viewType = views[(i % table.getn(views)) + 1]
+            W.viewType = views[math.mod(i, table.getn(views)) + 1]
             P.UpdateWindow()
             return
         end
