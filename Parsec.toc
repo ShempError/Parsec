@@ -1,0 +1,18 @@
+## Interface: 11200
+## Title: Parsec
+## Notes: Combat analysis powered by structured events. Requires SuperWoW + Nampower.
+## Author: Mueller
+## Version: 0.1.0
+## SavedVariables: ParsecDB
+## SavedVariablesPerCharacter: ParsecCharDB
+
+core\utils.lua
+core\eventbus.lua
+core\combat-state.lua
+core\data-store.lua
+core\debug.lua
+modules\damage.lua
+modules\healing.lua
+ui\window.xml
+ui\window.lua
+core\bootstrap.lua
