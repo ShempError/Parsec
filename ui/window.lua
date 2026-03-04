@@ -13,10 +13,11 @@ local MAX_BARS = 20
 local UPDATE_INTERVAL = 0.5
 
 -- View cycle order
-local VIEW_CYCLE = { "damage", "healing", "dps", "hps" }
+local VIEW_CYCLE = { "damage", "healing", "effheal", "dps", "hps" }
 local VIEW_LABELS = {
     damage  = "Damage",
     healing = "Healing",
+    effheal = "Eff. Healing",
     dps     = "DPS",
     hps     = "HPS",
 }

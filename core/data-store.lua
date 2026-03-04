@@ -191,7 +191,10 @@ function DS:GetSorted(viewType, segment)
                 value = data.heal_effective / playerDur
             end
 
-            if value > 0 then
+            -- Include player if they have ANY combat activity
+            local hasActivity = data.damage_total > 0 or data.heal_total > 0
+
+            if hasActivity then
                 raidTotal = raidTotal + value
                 table.insert(sorted, {
                     name = name,

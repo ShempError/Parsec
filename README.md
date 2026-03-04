@@ -4,6 +4,8 @@
 
 A lightweight combat analysis addon for **TurtleWoW** (WoW 1.12.1), built on **SuperWoW** and **Nampower** for accurate combat data that vanilla addons can't provide.
 
+![Parsec meter windows showing Damage, Healing, Effective Healing and per-segment views](screenshots/windows.png)
+
 ## Requirements
 
 - [SuperWoW](https://github.com/balakethelock/SuperWoW) - Extended combat log with source/target GUIDs, spell IDs, absorbs
@@ -24,18 +26,20 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 ## Features
 
 - **Damage** and **DPS** tracking (per-player activity duration)
-- **Healing** and **HPS** tracking (effective healing, overheal excluded)
+- **Healing**, **Effective Healing** and **HPS** tracking (overheal separated)
 - **Pet & totem merge** - attribute pet/totem damage to owner via GUID
 - **Multi-window** - open multiple views simultaneously
 - **Segment support** - Overall vs. Current Fight per window
 - **Window persistence** - positions, sizes, views and segments saved per character
 - **Class colors** - standard WoW class coloring with hash-based fallback for unknown units
 - **Custom bar textures** - Solid, Gradient, Striped, Glossy
-- **Minimap button** with left/right/middle click actions
-- **Options panel** with dark themed UI (sidebar navigation)
+- **Minimap button** - left-click toggle windows, right-click options, middle-click reset
+- **Options panel** - dark themed UI with sidebar navigation (see below)
 - **Debug panel** - message log (last 500 messages) with copy-paste for bug reports
 - **Auto show/hide** windows on combat start/end
 - **Lock windows** to prevent accidental moving
+
+![Options panel with bar settings, textures and sidebar navigation](screenshots/options.png)
 
 ## Installation
 

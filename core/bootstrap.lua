@@ -177,6 +177,123 @@ SlashCmdList["PARSEC"] = function(msg)
             end
         end
 
+    elseif msg == "fake" then
+        -- Inject fake data for screenshots (Horde only, no Paladins)
+        local ds = pp.dataStore
+        if not ds then pp.Print("No dataStore!"); return end
+        ds:ResetAll()
+
+        local now = GetTime()
+        local fightDur = 47  -- 47 second fight
+
+        -- Class assignments
+        ds.classes["Grommash"]   = "WARRIOR"
+        ds.classes["Zuljin"]     = "HUNTER"
+        ds.classes["Raksha"]     = "ROGUE"
+        ds.classes["Vexoria"]    = "MAGE"
+        ds.classes["Shadowveil"] = "WARLOCK"
+        ds.classes["Earthcall"]  = "SHAMAN"
+        ds.classes["Thornhide"]  = "DRUID"
+        ds.classes["Rotfang"]    = "PRIEST"
+        ds.classes["Krag"]       = "WARRIOR"
+        ds.classes["Hexweaver"]  = "SHAMAN"
+
+        -- Helper: inject player data directly into both segments
+        local function Inject(name, dmg, healTotal, healEff, spells, healSpells)
+            for _, seg in pairs({ ds.current, ds.overall }) do
+                local p = ds:GetPlayer(name, seg)
+                p.damage_total = dmg
+                p.heal_total = healTotal
+                p.heal_effective = healEff
+                p.heal_overheal = healTotal - healEff
+                p.first_action = now - fightDur
+                p.last_action = now
+                if spells then
+                    for spName, sp in pairs(spells) do
+                        p.damage_spells[spName] = sp
+                    end
+                end
+                if healSpells then
+                    for spName, sp in pairs(healSpells) do
+                        p.heal_spells[spName] = sp
+                    end
+                end
+            end
+        end
+
+        -- DPS players (damage focused)
+        Inject("Vexoria", 48720, 0, 0, {
+            ["Frostbolt"]     = { total = 28200, hits = 18, crits = 5, min = 1180, max = 2100 },
+            ["Cone of Cold"]  = { total = 11400, hits = 8, crits = 2, min = 1050, max = 1780 },
+            ["Arcane Missiles"] = { total = 9120, hits = 12, crits = 3, min = 580, max = 920 },
+        })
+        Inject("Grommash", 42150, 0, 0, {
+            ["Mortal Strike"]  = { total = 19800, hits = 14, crits = 4, min = 1080, max = 1820 },
+            ["Whirlwind"]      = { total = 13200, hits = 11, crits = 3, min = 900, max = 1450 },
+            ["Execute"]        = { total = 9150, hits = 4, crits = 2, min = 1800, max = 2700 },
+        })
+        Inject("Shadowveil", 38940, 0, 0, {
+            ["Shadow Bolt"]    = { total = 24600, hits = 16, crits = 5, min = 1100, max = 2050 },
+            ["Corruption"]     = { total = 8900, hits = 22, crits = 0, min = 350, max = 450 },
+            ["Immolate"]       = { total = 5440, hits = 10, crits = 2, min = 420, max = 680 },
+        })
+        Inject("Raksha", 36780, 0, 0, {
+            ["Sinister Strike"] = { total = 16500, hits = 20, crits = 6, min = 580, max = 1100 },
+            ["Eviscerate"]      = { total = 12800, hits = 6, crits = 3, min = 1600, max = 2800 },
+            ["Blade Flurry"]    = { total = 7480, hits = 14, crits = 4, min = 380, max = 680 },
+        })
+        Inject("Zuljin", 31200, 0, 0, {
+            ["Auto Shot"]      = { total = 14400, hits = 24, crits = 6, min = 420, max = 780 },
+            ["Aimed Shot"]     = { total = 9800, hits = 5, crits = 2, min = 1500, max = 2400 },
+            ["Multi-Shot"]     = { total = 7000, hits = 8, crits = 2, min = 680, max = 1050 },
+        })
+        Inject("Krag", 18400, 0, 0, {
+            ["Sunder Armor"]   = { total = 5200, hits = 16, crits = 0, min = 280, max = 380 },
+            ["Heroic Strike"]  = { total = 8600, hits = 10, crits = 3, min = 650, max = 1100 },
+            ["Revenge"]        = { total = 4600, hits = 12, crits = 2, min = 300, max = 480 },
+        })
+
+        -- Healers (some damage too)
+        Inject("Earthcall", 3200, 52400, 41920, {
+            ["Lightning Shield"] = { total = 3200, hits = 8, crits = 0, min = 350, max = 450 },
+        }, {
+            ["Chain Heal"]     = { total = 32400, effective = 25920, overheal = 6480, hits = 12, crits = 3 },
+            ["Healing Wave"]   = { total = 15200, effective = 12160, overheal = 3040, hits = 6, crits = 1 },
+            ["Lesser Healing Wave"] = { total = 4800, effective = 3840, overheal = 960, hits = 4, crits = 1 },
+        })
+        Inject("Rotfang", 1800, 44800, 38080,  {
+            ["Shadow Word: Pain"] = { total = 1800, hits = 6, crits = 0, min = 250, max = 350 },
+        }, {
+            ["Greater Heal"]   = { total = 22400, effective = 19040, overheal = 3360, hits = 8, crits = 2 },
+            ["Prayer of Healing"] = { total = 14800, effective = 12580, overheal = 2220, hits = 5, crits = 1 },
+            ["Renew"]          = { total = 7600, effective = 6460, overheal = 1140, hits = 10, crits = 0 },
+        })
+        Inject("Thornhide", 5600, 36200, 25340, {
+            ["Moonfire"]       = { total = 3200, hits = 6, crits = 1, min = 380, max = 620 },
+            ["Wrath"]          = { total = 2400, hits = 3, crits = 1, min = 650, max = 950 },
+        }, {
+            ["Rejuvenation"]   = { total = 18600, effective = 13020, overheal = 5580, hits = 15, crits = 0 },
+            ["Regrowth"]       = { total = 12400, effective = 8680, overheal = 3720, hits = 6, crits = 2 },
+            ["Healing Touch"]  = { total = 5200, effective = 3640, overheal = 1560, hits = 2, crits = 1 },
+        })
+        Inject("Hexweaver", 4100, 28600, 20020, {
+            ["Earth Shock"]    = { total = 4100, hits = 5, crits = 1, min = 620, max = 980 },
+        }, {
+            ["Chain Heal"]     = { total = 18200, effective = 12740, overheal = 5460, hits = 7, crits = 1 },
+            ["Healing Wave"]   = { total = 10400, effective = 7280, overheal = 3120, hits = 4, crits = 1 },
+        })
+
+        -- Set combat duration on both segments
+        ds.current.startTime = now - fightDur
+        ds.current.duration = fightDur
+        ds.overall.startTime = now - fightDur
+        ds.overall.duration = fightDur
+        pp.combatState.startTime = now - fightDur
+        pp.combatState.overallStart = now - fightDur
+
+        pp.Print("|cff00ff00Fake data injected!|r 10 players, " .. fightDur .. "s fight.")
+        pp.UpdateAllWindows()
+
     elseif msg == "help" then
         pp.Print("--- Parsec Commands ---")
         pp.Print("/parsec - Toggle all windows")
