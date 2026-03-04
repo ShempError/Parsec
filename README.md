@@ -33,7 +33,11 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Segment support** - Overall vs. Current Fight per window
 - **Window persistence** - positions, sizes, views and segments saved per character
 - **Class colors** - standard WoW class coloring with hash-based fallback for unknown units
-- **Custom bar textures** - Solid, Gradient, Striped, Glossy
+- **Fight history** - save past combat segments for post-fight review (configurable limit, right-click segment button to select)
+- **Custom bar textures** - Solid, Gradient, Striped, Glossy, Smooth, Flat, Ember, Rain
+- **Font outline & shadow** - toggle outline/shadow for bar text readability
+- **Spell tooltip** - cursor-following tooltip with spell bars, crit% column, and adjustable opacity
+- **Clickable title bar** - click segment indicator to toggle Current/Overall, click view label to cycle metrics
 - **Minimap button** - left-click toggle windows, right-click options, middle-click reset
 - **Options panel** - dark themed UI with sidebar navigation (see below)
 - **Debug panel** - message log (last 500 messages) with copy-paste for bug reports
@@ -60,13 +64,15 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 | `/parsec debug` | Toggle debug mode |
 | `/parsec pets` | Show pet-owner cache |
 | `/parsec stats` | Show event statistics |
+| `/parsec history` | List saved fight segments |
+| `/parsec fake` | Generate fake data for testing |
 | `/parsec help` | List all commands |
 
 ## Options Panel
 
-- **Bars** - Bar height, spacing, texture, pet merge toggle
-- **Window** - Backdrop visibility, opacity, lock positions, reset actions
-- **Automation** - Auto show/hide on combat, minimap button, track-all toggle
+- **Bars** - Bar height, spacing, texture picker, font shadow, font outline, pet merge toggle
+- **Window** - Backdrop visibility, opacity, tooltip opacity, lock positions, click-to-cycle toggle, reset actions
+- **Automation** - Auto show/hide on combat, minimap button, track-all toggle, max fight history slider, clear history
 - **About** - Version info and command reference
 - **Debug** - Message log buffer with Select All / Clear / Refresh
 
@@ -74,7 +80,7 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 
 - Only tested in solo and small group content
 - Raid (40-man) tested once successfully, but needs ongoing validation after major changes
-- No death log or damage breakdown by spell
+- No death log
 - Threat tracking not implemented
 
 ## Architecture
@@ -99,6 +105,33 @@ Parsec/
     options.lua       - Options panel (sidebar + lazy-built panels)
   textures/           - Custom TGA textures (bars, icons, window chrome)
 ```
+
+## Changelog
+
+### v0.4.x (2026-03-04)
+- **Fight history** — save past combat segments in memory for post-fight review (configurable max 1-25)
+- **Segment dropdown** — right-click `[C]`/`[O]` to select from Current, Overall, and saved history segments with per-player values
+- **Tooltip overhaul** — cursor-following tooltip with starry background, opacity setting, and dedicated crit% column
+- **Fake data** — `/parsec fake` includes player's own character and generates 3 history segments
+- **Bug fixes** — combat duration reset ordering, DAMAGESHIELDS resist parsing, MISSED event spam
+
+### v0.3.x (2026-03-04)
+- **Font shadow & outline** — toggle shadow/outline on bar text for readability (Options > Bars)
+- **Texture picker** — 8 bar textures (Solid, Gradient, Striped, Glossy, Smooth, Flat, Ember, Rain) with realistic preview
+- **Clickable title bar** — click segment indicator to toggle Current/Overall, click view label to cycle metrics
+- **Custom spell tooltip** — per-spell bars with damage proportion, crit%, and overheal annotation
+
+### v0.2.x (2026-03-03)
+- **Multi-window** — open Damage, DPS, Healing, Effective Healing, HPS simultaneously
+- **Segment support** — Overall vs. Current Fight per window
+- **Window persistence** — positions, sizes, views saved per character
+- **Options panel** — dark themed UI with sidebar navigation
+- **Minimap button** — left-click toggle, right-click options, middle-click reset
+
+### v0.1.x (2026-03-02)
+- Initial release — damage and healing tracking with SuperWoW structured events
+- Per-player DPS duration, pet & totem merge, class colors
+- Auto show/hide on combat, debug panel
 
 ## License
 
