@@ -94,7 +94,7 @@ local function CreateBar(parent)
         P.ShowBarTooltip(this)
     end)
     bar:SetScript("OnLeave", function()
-        GameTooltip:Hide()
+        P.HideBarTooltip()
     end)
 
     bar.playerName = nil
@@ -113,8 +113,80 @@ local function GetBar(frame, index)
 end
 
 ---------------------------------------------------------------------------
--- Tooltip
+-- Custom Tooltip with Spell Bars
 ---------------------------------------------------------------------------
+
+local TOOLTIP_WIDTH = 230
+local TOOLTIP_BAR_HEIGHT = 12
+local TOOLTIP_BAR_SPACING = 1
+local TOOLTIP_PADDING = 8
+local MAX_TOOLTIP_BARS = 10
+
+local tooltipFrame = CreateFrame("Frame", "ParsecBarTooltip", UIParent)
+tooltipFrame:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+})
+tooltipFrame:SetBackdropColor(0, 0, 0, 0.92)
+tooltipFrame:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
+tooltipFrame:SetFrameStrata("TOOLTIP")
+tooltipFrame:SetWidth(TOOLTIP_WIDTH)
+tooltipFrame:Hide()
+
+tooltipFrame.title = tooltipFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+tooltipFrame.title:SetPoint("TOPLEFT", tooltipFrame, "TOPLEFT", TOOLTIP_PADDING, -TOOLTIP_PADDING)
+tooltipFrame.title:SetPoint("RIGHT", tooltipFrame, "RIGHT", -TOOLTIP_PADDING, 0)
+tooltipFrame.title:SetJustifyH("LEFT")
+
+tooltipFrame.infoLines = {}
+for iLine = 1, 4 do
+    local left = tooltipFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    left:SetJustifyH("LEFT")
+    local right = tooltipFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    right:SetJustifyH("RIGHT")
+    right:SetTextColor(1, 1, 1)
+    tooltipFrame.infoLines[iLine] = { left = left, right = right }
+end
+
+tooltipFrame.separator = tooltipFrame:CreateTexture(nil, "ARTWORK")
+tooltipFrame.separator:SetTexture(1, 1, 1, 0.15)
+tooltipFrame.separator:SetHeight(1)
+
+tooltipFrame.spellBars = {}
+for iBar = 1, MAX_TOOLTIP_BARS do
+    local sbar = CreateFrame("StatusBar", nil, tooltipFrame)
+    sbar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    sbar:SetMinMaxValues(0, 1)
+    sbar:SetHeight(TOOLTIP_BAR_HEIGHT)
+
+    sbar.bg = sbar:CreateTexture(nil, "BACKGROUND")
+    sbar.bg:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    sbar.bg:SetAllPoints(sbar)
+    sbar.bg:SetVertexColor(0.1, 0.1, 0.1, 0.6)
+
+    sbar.name = sbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    sbar.name:SetPoint("LEFT", sbar, "LEFT", 2, 0)
+    sbar.name:SetJustifyH("LEFT")
+    sbar.name:SetShadowColor(0, 0, 0, 1)
+    sbar.name:SetShadowOffset(1, -1)
+
+    sbar.value = sbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    sbar.value:SetPoint("RIGHT", sbar, "RIGHT", -2, 0)
+    sbar.value:SetJustifyH("RIGHT")
+    sbar.value:SetTextColor(1, 0.82, 0)
+    sbar.value:SetShadowColor(0, 0, 0, 1)
+    sbar.value:SetShadowOffset(1, -1)
+
+    sbar.name:SetPoint("RIGHT", sbar.value, "LEFT", -2, 0)
+
+    tooltipFrame.spellBars[iBar] = sbar
+end
+
+function P.HideBarTooltip()
+    tooltipFrame:Hide()
+end
 
 function P.ShowBarTooltip(bar)
     if not bar.playerName or not bar.playerData then return end
@@ -122,77 +194,178 @@ function P.ShowBarTooltip(bar)
     local name = bar.playerName
     local vt = bar.viewType
 
-    GameTooltip:SetOwner(bar, "ANCHOR_RIGHT")
-    GameTooltip:ClearLines()
-
     local cc = P.GetClassColor(name)
-    GameTooltip:AddLine(name, cc.r, cc.g, cc.b)
+    local s = P.settings or {}
+    local texIdx = s.barTexture or 1
+    local texPath = P.BAR_TEXTURES and P.BAR_TEXTURES[texIdx]
+        or "Interface\\TargetingFrame\\UI-StatusBar"
 
+    -- Position tooltip to the right of the bar
+    tooltipFrame:ClearAllPoints()
+    tooltipFrame:SetPoint("TOPLEFT", bar, "TOPRIGHT", 2, TOOLTIP_PADDING)
+
+    -- Title: player name in class color
+    tooltipFrame.title:SetText(name)
+    tooltipFrame.title:SetTextColor(cc.r, cc.g, cc.b)
+
+    local yOff = -(TOOLTIP_PADDING + 16)
+
+    -- Gather info + spells
     local segment = bar.segment or "overall"
     local duration = P.combatState:GetDuration(segment)
     if duration < 1 then duration = 1 end
 
-    if vt == "damage" or vt == "dps" then
-        GameTooltip:AddDoubleLine("Total Damage:", P.FormatNumber(data.damage_total), 1, 0.82, 0, 1, 1, 1)
-        local playerDur = data.last_action - data.first_action
-        if playerDur < 1 then playerDur = duration end
-        GameTooltip:AddDoubleLine("DPS:", string.format("%.1f", data.damage_total / playerDur), 1, 0.82, 0, 1, 1, 1)
-        GameTooltip:AddLine(" ")
+    local infoCount = 0
+    local spells = {}
+    local totalValue = 0
+    local isDmg = (vt == "damage" or vt == "dps")
 
-        local spells = {}
+    local playerDur = data.last_action - data.first_action
+    if playerDur < 1 then playerDur = duration end
+
+    if isDmg then
+        infoCount = 2
+        tooltipFrame.infoLines[1].left:SetText("Total Damage:")
+        tooltipFrame.infoLines[1].left:SetTextColor(1, 0.82, 0)
+        tooltipFrame.infoLines[1].right:SetText(P.FormatNumber(data.damage_total))
+        tooltipFrame.infoLines[2].left:SetText("DPS:")
+        tooltipFrame.infoLines[2].left:SetTextColor(1, 0.82, 0)
+        tooltipFrame.infoLines[2].right:SetText(
+            string.format("%.1f", data.damage_total / playerDur))
+
+        totalValue = data.damage_total
         for spellName, sp in pairs(data.damage_spells) do
             table.insert(spells, { name = spellName, data = sp })
         end
         table.sort(spells, function(a, b) return a.data.total > b.data.total end)
-
-        for i = 1, math.min(table.getn(spells), 10) do
-            local sp = spells[i]
-            local pct = P.FormatPct(sp.data.total, data.damage_total)
-            local critPct = ""
-            if sp.data.hits > 0 then
-                critPct = string.format(" (%.0f%% crit)", (sp.data.crits / sp.data.hits) * 100)
-            end
-            GameTooltip:AddDoubleLine(
-                sp.name .. critPct,
-                P.FormatNumber(sp.data.total) .. " - " .. pct,
-                1, 1, 1, 0.8, 0.8, 0.8
-            )
-        end
     else
-        GameTooltip:AddDoubleLine("Total Healing:", P.FormatNumber(data.heal_total), 0.2, 1, 0.2, 1, 1, 1)
-        GameTooltip:AddDoubleLine("Effective:", P.FormatNumber(data.heal_effective), 0.2, 1, 0.2, 1, 1, 1)
-        if data.heal_total > 0 then
-            GameTooltip:AddDoubleLine("Overhealing:",
-                P.FormatNumber(data.heal_overheal) .. " (" .. P.FormatPct(data.heal_overheal, data.heal_total) .. ")",
-                1, 0.5, 0, 1, 1, 1)
-        end
-        local playerDur = data.last_action - data.first_action
-        if playerDur < 1 then playerDur = duration end
-        GameTooltip:AddDoubleLine("HPS:", string.format("%.1f", data.heal_effective / playerDur), 0.2, 1, 0.2, 1, 1, 1)
-        GameTooltip:AddLine(" ")
+        infoCount = 3
+        tooltipFrame.infoLines[1].left:SetText("Total Healing:")
+        tooltipFrame.infoLines[1].left:SetTextColor(0.2, 1, 0.2)
+        tooltipFrame.infoLines[1].right:SetText(P.FormatNumber(data.heal_total))
+        tooltipFrame.infoLines[2].left:SetText("Effective:")
+        tooltipFrame.infoLines[2].left:SetTextColor(0.2, 1, 0.2)
+        tooltipFrame.infoLines[2].right:SetText(P.FormatNumber(data.heal_effective))
 
-        local spells = {}
+        if data.heal_total > 0 then
+            infoCount = 4
+            tooltipFrame.infoLines[3].left:SetText("Overhealing:")
+            tooltipFrame.infoLines[3].left:SetTextColor(1, 0.5, 0)
+            tooltipFrame.infoLines[3].right:SetText(
+                P.FormatNumber(data.heal_overheal)
+                .. " (" .. P.FormatPct(data.heal_overheal, data.heal_total) .. ")")
+            tooltipFrame.infoLines[4].left:SetText("HPS:")
+            tooltipFrame.infoLines[4].left:SetTextColor(0.2, 1, 0.2)
+            tooltipFrame.infoLines[4].right:SetText(
+                string.format("%.1f", data.heal_effective / playerDur))
+        else
+            tooltipFrame.infoLines[3].left:SetText("HPS:")
+            tooltipFrame.infoLines[3].left:SetTextColor(0.2, 1, 0.2)
+            tooltipFrame.infoLines[3].right:SetText(
+                string.format("%.1f", data.heal_effective / playerDur))
+        end
+
+        totalValue = data.heal_effective
         for spellName, sp in pairs(data.heal_spells) do
             table.insert(spells, { name = spellName, data = sp })
         end
-        table.sort(spells, function(a, b) return a.data.effective > b.data.effective end)
+        table.sort(spells, function(a, b)
+            return a.data.effective > b.data.effective
+        end)
+    end
 
-        for i = 1, math.min(table.getn(spells), 10) do
-            local sp = spells[i]
-            local pct = P.FormatPct(sp.data.effective, data.heal_effective)
-            local ohPct = ""
-            if sp.data.total > 0 then
-                ohPct = string.format(" (%.0f%% OH)", (sp.data.overheal / sp.data.total) * 100)
-            end
-            GameTooltip:AddDoubleLine(
-                sp.name .. ohPct,
-                P.FormatNumber(sp.data.effective) .. " - " .. pct,
-                1, 1, 1, 0.8, 0.8, 0.8
-            )
+    -- Layout info lines
+    for k = 1, 4 do
+        local line = tooltipFrame.infoLines[k]
+        if k <= infoCount then
+            line.left:ClearAllPoints()
+            line.left:SetPoint("TOPLEFT", tooltipFrame, "TOPLEFT",
+                TOOLTIP_PADDING, yOff)
+            line.right:ClearAllPoints()
+            line.right:SetPoint("TOPRIGHT", tooltipFrame, "TOPRIGHT",
+                -TOOLTIP_PADDING, yOff)
+            line.left:Show()
+            line.right:Show()
+            yOff = yOff - 14
+        else
+            line.left:Hide()
+            line.right:Hide()
         end
     end
 
-    GameTooltip:Show()
+    -- Separator
+    yOff = yOff - 4
+    tooltipFrame.separator:ClearAllPoints()
+    tooltipFrame.separator:SetPoint("TOPLEFT", tooltipFrame, "TOPLEFT",
+        TOOLTIP_PADDING, yOff)
+    tooltipFrame.separator:SetPoint("RIGHT", tooltipFrame, "RIGHT",
+        -TOOLTIP_PADDING, 0)
+    tooltipFrame.separator:Show()
+    yOff = yOff - 6
+
+    -- Spell bars
+    local numSpells = math.min(table.getn(spells), MAX_TOOLTIP_BARS)
+    local topSpellValue = 0
+    if numSpells > 0 then
+        topSpellValue = isDmg and spells[1].data.total
+            or spells[1].data.effective
+    end
+
+    local barW = TOOLTIP_WIDTH - (TOOLTIP_PADDING * 2)
+
+    for k = 1, MAX_TOOLTIP_BARS do
+        local sbar = tooltipFrame.spellBars[k]
+        if k <= numSpells then
+            local sp = spells[k]
+            local spValue = isDmg and sp.data.total or sp.data.effective
+
+            local pct = 0
+            if topSpellValue > 0 then pct = spValue / topSpellValue end
+
+            sbar:ClearAllPoints()
+            sbar:SetPoint("TOPLEFT", tooltipFrame, "TOPLEFT",
+                TOOLTIP_PADDING, yOff)
+            sbar:SetWidth(barW)
+            sbar:SetStatusBarTexture(texPath)
+            sbar.bg:SetTexture(texPath)
+            sbar:SetStatusBarColor(cc.r * 0.7, cc.g * 0.7, cc.b * 0.7, 0.9)
+            sbar:SetValue(pct)
+
+            -- Spell name + crit/OH annotation
+            local nameText = sp.name
+            if isDmg then
+                if sp.data.hits and sp.data.hits > 0 then
+                    nameText = nameText .. string.format(
+                        " (%.0f%%)", (sp.data.crits / sp.data.hits) * 100)
+                end
+            else
+                local spTotal = sp.data.total or 0
+                local oh = sp.data.overheal or 0
+                if spTotal > 0 and oh > 0 then
+                    nameText = nameText .. string.format(
+                        " (%.0f%% OH)", (oh / spTotal) * 100)
+                end
+            end
+            sbar.name:SetText(nameText)
+            sbar.name:SetTextColor(1, 1, 1)
+
+            -- Value + percentage of total
+            local pctStr = ""
+            if totalValue > 0 then
+                pctStr = " " .. P.FormatPct(spValue, totalValue)
+            end
+            sbar.value:SetText(P.FormatNumber(spValue) .. pctStr)
+
+            sbar:Show()
+            yOff = yOff - (TOOLTIP_BAR_HEIGHT + TOOLTIP_BAR_SPACING)
+        else
+            sbar:Hide()
+        end
+    end
+
+    -- Set final height
+    tooltipFrame:SetHeight(-(yOff) + TOOLTIP_PADDING)
+    tooltipFrame:Show()
 end
 
 ---------------------------------------------------------------------------
