@@ -72,8 +72,6 @@ Parsec/
     minimap-button.lua- Draggable minimap icon
     options.lua       - Options panel (sidebar + lazy-built panels)
   textures/           - Custom TGA textures (bars, icons, window chrome)
-  tools/
-    generate-textures.js - Node.js script to generate TGA texture files
 ```
 
 ## Requirements
