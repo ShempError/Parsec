@@ -5,6 +5,7 @@
 A lightweight combat analysis addon for **TurtleWoW** (WoW 1.12.1), built on **SuperWoW** and **Nampower** for accurate combat data that vanilla addons can't provide.
 
 ![Parsec meter windows showing Damage, Healing, Effective Healing and per-segment views](screenshots/windows.png)
+*(fake data — no one was kicked from the raid for bad performance ;)*
 
 ## Requirements
 
