@@ -108,7 +108,14 @@ Parsec/
 
 ## Changelog
 
-### v0.4.x (2026-03-04)
+### v0.4.1 (2026-03-04)
+- **Channels options tab** — standard + custom channels with checkboxes and ChatTypeInfo color swatches
+- **Colored announce dropdown** — only enabled channels shown, each in its chat type color
+- **Custom channel support** — dynamically discovered via GetChannelList(), correct channelId for SendChatMessage
+- **Borderless title buttons** — Menu, >>, X as plain cyan text matching view label style
+- **README changelog** — full version history added
+
+### v0.4.0 (2026-03-04)
 - **Fight history** — save past combat segments in memory for post-fight review (configurable max 1-25)
 - **Segment dropdown** — right-click `[C]`/`[O]` to select from Current, Overall, and saved history segments with per-player values
 - **Tooltip overhaul** — cursor-following tooltip with starry background, opacity setting, and dedicated crit% column
