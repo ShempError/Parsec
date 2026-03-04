@@ -178,11 +178,20 @@ SlashCmdList["PARSEC"] = function(msg)
         end
 
     elseif msg == "fake" then
-        -- Inject fake data for screenshots (Horde only, no Paladins)
+        -- Toggle fake data for screenshots (Horde only, no Paladins)
         local ds = pp.dataStore
         if not ds then pp.Print("No dataStore!"); return end
-        ds:ResetAll()
 
+        -- If fake data is active, clear it
+        if pp._fakeDataActive then
+            ds:ResetAll()
+            pp._fakeDataActive = false
+            pp.Print("|cffff4444Fake data cleared.|r")
+            pp.UpdateAllWindows()
+            return
+        end
+
+        ds:ResetAll()
         local now = GetTime()
         local fightDur = 47  -- 47 second fight
 
@@ -291,7 +300,8 @@ SlashCmdList["PARSEC"] = function(msg)
         pp.combatState.startTime = now - fightDur
         pp.combatState.overallStart = now - fightDur
 
-        pp.Print("|cff00ff00Fake data injected!|r 10 players, " .. fightDur .. "s fight.")
+        pp._fakeDataActive = true
+        pp.Print("|cff00ff00Fake data injected!|r 10 players, " .. fightDur .. "s fight. Type /parsec fake again to clear.")
         pp.UpdateAllWindows()
 
     elseif msg == "help" then

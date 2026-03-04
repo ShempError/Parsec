@@ -136,13 +136,21 @@ local MISS_TYPES = {
     [11] = "REFLECT",
 }
 
--- Check if hitInfo bitmask has critical hit flag (HITINFO_CRITICALHIT = 0x2)
--- Bitmask bit 1 (value 2): critical hit
-local function IsCritHit(hitInfo)
+-- Spell hitInfo uses SpellHitType enum: SPELL_HIT_TYPE_CRIT = 0x02 (bit 1)
+local function IsSpellCrit(hitInfo)
     if not hitInfo then return false end
     hitInfo = tonumber(hitInfo) or 0
-    -- Check bit 1 (0x2) in Lua 5.0 without bit lib
+    -- Check bit 1 (0x02) in Lua 5.0 without bit lib
     return math.mod(math.floor(hitInfo / 2), 2) == 1
+end
+
+-- Melee hitInfo uses HitInfo enum: HITINFO_CRITICALHIT = 0x80 (bit 7)
+-- (0x02 is HITINFO_NORMALSWING2, set on almost every normal hit!)
+local function IsMeleeCrit(hitInfo)
+    if not hitInfo then return false end
+    hitInfo = tonumber(hitInfo) or 0
+    -- Check bit 7 (0x80 = 128) in Lua 5.0 without bit lib
+    return math.mod(math.floor(hitInfo / 128), 2) == 1
 end
 
 ---------------------------------------------------------------------------
@@ -372,7 +380,7 @@ local function OnSpellDamage()
 
     local source = P.ResolveName(casterGuid) or casterGuid or "?"
     local target = P.ResolveName(targetGuid) or targetGuid or "?"
-    local crit = IsCritHit(hitInfo)
+    local crit = IsSpellCrit(hitInfo)
 
     local spellName = "?"
     if spellID and SpellInfo then
@@ -419,7 +427,7 @@ local function OnAutoAttack()
 
     local source = P.ResolveName(attackerGuid) or attackerGuid or "?"
     local target = P.ResolveName(targetGuid) or targetGuid or "?"
-    local crit = IsCritHit(hitInfo)
+    local crit = IsMeleeCrit(hitInfo)
     local petOwner = P.GetPetOwnerByGUID(attackerGuid)
 
     local data = {
