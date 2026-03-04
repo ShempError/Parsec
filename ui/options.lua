@@ -686,6 +686,12 @@ function F:BuildBarsPanel(panel, idx)
     ctrls.barTexture = tp1
     y = y3
 
+    y = y + 2
+
+    local cb1, y4 = self:CreateCheckbox(panel, "Font Shadow", "fontShadow", y)
+    ctrls.fontShadow = cb1.checkbox
+    y = y4
+
     y = y + 4
     y = self:CreateSectionHeader(panel, "Data", y)
 

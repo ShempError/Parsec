@@ -52,26 +52,30 @@ local function CreateBar(parent)
     bar.bg:SetAllPoints(bar)
     bar.bg:SetVertexColor(0.1, 0.1, 0.1, 0.6)
 
+    local shadow = s.fontShadow ~= false  -- default true
+    local shadowA = shadow and 1 or 0
+    local shadowOff = shadow and 1 or 0
+
     bar.rank = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.rank:SetPoint("LEFT", bar, "LEFT", 2, 0)
     bar.rank:SetWidth(14)
     bar.rank:SetJustifyH("RIGHT")
     bar.rank:SetTextColor(0.6, 0.6, 0.6)
-    bar.rank:SetShadowColor(0, 0, 0, 1)
-    bar.rank:SetShadowOffset(1, -1)
+    bar.rank:SetShadowColor(0, 0, 0, shadowA)
+    bar.rank:SetShadowOffset(shadowOff, -shadowOff)
 
     bar.name = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.name:SetPoint("LEFT", bar.rank, "RIGHT", 2, 0)
     bar.name:SetJustifyH("LEFT")
-    bar.name:SetShadowColor(0, 0, 0, 1)
-    bar.name:SetShadowOffset(1, -1)
+    bar.name:SetShadowColor(0, 0, 0, shadowA)
+    bar.name:SetShadowOffset(shadowOff, -shadowOff)
 
     bar.value = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.value:SetPoint("RIGHT", bar, "RIGHT", -2, 0)
     bar.value:SetJustifyH("RIGHT")
     bar.value:SetTextColor(1, 0.82, 0)
-    bar.value:SetShadowColor(0, 0, 0, 1)
-    bar.value:SetShadowOffset(1, -1)
+    bar.value:SetShadowColor(0, 0, 0, shadowA)
+    bar.value:SetShadowOffset(shadowOff, -shadowOff)
 
     bar.name:SetPoint("RIGHT", bar.value, "LEFT", -4, 0)
 
