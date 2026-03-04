@@ -19,14 +19,14 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **SuperWoW structured events** - Instead of regex-parsing combat log strings, Parsec uses SuperWoW's extended events that provide source GUID, target GUID, spell ID, and damage components as discrete values. This eliminates the fragile pattern matching that breaks on localized clients or unusual spell names.
 - **Per-player DPS duration** - Most meters divide total damage by the global fight duration, inflating DPS for players who joined late or died early. Parsec tracks each player's first and last combat action and calculates DPS based on their individual activity window.
 - **Multi-window views** - Open Damage, DPS, Healing, and HPS simultaneously in separate windows, each with independent segment selection (Overall vs. Current Fight). No tab-switching needed.
-- **Pet-owner attribution** - Pet damage is automatically merged with the owner using GUID-based tracking, not name heuristics.
+- **Pet & totem attribution** - Pet and totem damage is automatically merged with the owner using GUID-based tracking, not name heuristics.
 - **Modern UI** - Dark-themed options panel with sidebar navigation, custom bar textures, resizable/movable windows with persistent state across sessions.
 
 ## Features
 
 - **Damage** and **DPS** tracking (per-player activity duration)
 - **Healing** and **HPS** tracking (effective healing, overheal excluded)
-- **Pet merge** - attribute pet damage/healing to owner via GUID
+- **Pet & totem merge** - attribute pet/totem damage to owner via GUID
 - **Multi-window** - open multiple views simultaneously
 - **Segment support** - Overall vs. Current Fight per window
 - **Window persistence** - positions, sizes, views and segments saved per character
