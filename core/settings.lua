@@ -21,7 +21,7 @@ P.DEFAULTS = {
     barHeight    = 14,
     barSpacing   = 1,
     barTexture   = 1,
-    fontShadow   = true,
+    fontShadow   = 1,
     pastelColors = false,
     showBackdrop = true,
 }
@@ -115,6 +115,13 @@ function P.LoadSettings()
             P.settings[k] = v
         end
     end
+
+    -- Migrate fontShadow: boolean (old) -> number (new)
+    if P.settings.fontShadow == true then
+        P.settings.fontShadow = 1
+    elseif P.settings.fontShadow == false then
+        P.settings.fontShadow = 0
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -157,8 +164,8 @@ function P.ApplySettings()
         -- Bar texture + height + spacing + font shadow
         if f.pc and f.pc.bars then
             local texPath = P.BAR_TEXTURES[s.barTexture] or P.BAR_TEXTURES[1]
-            local shadowA = s.fontShadow and 1 or 0
-            local shadowOff = s.fontShadow and 1 or 0
+            local shadowOff = s.fontShadow or 0
+            local shadowA = (shadowOff > 0) and 1 or 0
             for j = 1, table.getn(f.pc.bars) do
                 local bar = f.pc.bars[j]
                 bar:SetStatusBarTexture(texPath)
