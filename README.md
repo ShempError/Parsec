@@ -20,7 +20,6 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Per-player DPS duration** - Most meters divide total damage by the global fight duration, inflating DPS for players who joined late or died early. Parsec tracks each player's first and last combat action and calculates DPS based on their individual activity window.
 - **Multi-window views** - Open Damage, DPS, Healing, and HPS simultaneously in separate windows, each with independent segment selection (Overall vs. Current Fight). No tab-switching needed.
 - **Pet & totem attribution** - Pet and totem damage is automatically merged with the owner using GUID-based tracking, not name heuristics.
-- **Modern UI** - Dark-themed options panel with sidebar navigation, custom bar textures, resizable/movable windows with persistent state across sessions.
 
 ## Features
 
