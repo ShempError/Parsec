@@ -28,6 +28,13 @@ P.DEFAULTS = {
     clickToCycleView = true,
     historyLimit = 10,
     tooltipOpacity = 0.92,
+    enabledChannels = {
+        SAY = true,
+        PARTY = true,
+        GUILD = true,
+        RAID = true,
+        BATTLEGROUND = true,
+    },
 }
 
 P.settings = {}
@@ -131,6 +138,15 @@ function P.LoadSettings()
     -- Migrate fontShadow: number (brief v0.3.x) -> boolean
     if type(P.settings.fontShadow) == "number" then
         P.settings.fontShadow = P.settings.fontShadow > 0
+    end
+
+    -- Merge enabledChannels: add new defaults to saved table
+    if type(P.settings.enabledChannels) == "table" then
+        for k, v in pairs(P.DEFAULTS.enabledChannels) do
+            if P.settings.enabledChannels[k] == nil then
+                P.settings.enabledChannels[k] = v
+            end
+        end
     end
 end
 

@@ -516,25 +516,67 @@ end
 -- Announce channel dropdown (Say, Party, Raid, BG)
 ---------------------------------------------------------------------------
 
+local function GetChatColor(chatType)
+    if ChatTypeInfo and ChatTypeInfo[chatType] then
+        return ChatTypeInfo[chatType].r or 1, ChatTypeInfo[chatType].g or 1, ChatTypeInfo[chatType].b or 1
+    end
+    return 1, 1, 1
+end
+
+local function ColorText(text, r, g, b)
+    return string.format("|cff%02x%02x%02x", r * 255, g * 255, b * 255) .. text .. "|r"
+end
+
 local function InitAnnounceMenu()
     if not menuTargetFrame then return end
     local targetFrame = menuTargetFrame
+    local ec = P.settings.enabledChannels or {}
 
+    -- Standard channels (only enabled ones)
     local channels = {
-        { label = "Say (/s)", ch = "SAY" },
-        { label = "Party (/p)", ch = "PARTY" },
-        { label = "Raid (/raid)", ch = "RAID" },
-        { label = "Battleground (/bg)", ch = "BATTLEGROUND" },
+        { label = "Say (/s)",             ch = "SAY",           chatType = "SAY" },
+        { label = "Party (/p)",           ch = "PARTY",         chatType = "PARTY" },
+        { label = "Guild (/g)",           ch = "GUILD",         chatType = "GUILD" },
+        { label = "Raid (/raid)",         ch = "RAID",          chatType = "RAID" },
+        { label = "Battleground (/bg)",   ch = "BATTLEGROUND",  chatType = "BATTLEGROUND" },
     }
 
     for i = 1, table.getn(channels) do
-        local capturedCh = channels[i].ch
-        local info = {}
-        info.text = channels[i].label
-        info.func = function()
-            P.AnnounceToChannel(targetFrame, capturedCh)
+        if ec[channels[i].ch] then
+            local capturedCh = channels[i].ch
+            local r, g, b = GetChatColor(channels[i].chatType)
+            local info = {}
+            info.text = ColorText(channels[i].label, r, g, b)
+            info.notCheckable = 1
+            info.func = function()
+                P.AnnounceToChannel(targetFrame, capturedCh)
+            end
+            UIDropDownMenu_AddButton(info)
         end
-        UIDropDownMenu_AddButton(info)
+    end
+
+    -- Custom channels (only enabled + currently joined)
+    if GetChannelList then
+        local chList = { GetChannelList() }
+        for i = 1, table.getn(chList), 2 do
+            local chId = chList[i]
+            local chName = chList[i + 1]
+            if chName and ec["CHANNEL_" .. chName] then
+                local capturedId = chId
+                local chatType = "CHANNEL" .. chId
+                local r, g, b = GetChatColor(chatType)
+                if r == 1 and g == 1 and b == 1 then
+                    r, g, b = GetChatColor("CHANNEL")
+                end
+                local info = {}
+                info.text = ColorText(chName .. " (/" .. chId .. ")", r, g, b)
+                info.notCheckable = 1
+                info.func = function()
+                    P.AnnounceToChannel(targetFrame, "CHANNEL", capturedId)
+                end
+                UIDropDownMenu_AddButton(info)
+            end
+        end
     end
 end
 
@@ -664,60 +706,17 @@ local function CreateTitleBarButton(parent, text, tooltip, width, hoverColor, on
     btn:SetHeight(14)
     btn:SetWidth(width)
 
-    -- Dark background
-    local bg = btn:CreateTexture(nil, "BACKGROUND")
-    bg:SetTexture(0.08, 0.08, 0.12, 0.9)
-    bg:SetPoint("TOPLEFT", btn, "TOPLEFT", 1, -1)
-    bg:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -1, 1)
-    btn.bg = bg
-
-    -- Border textures (1px edges)
-    local borderTop = btn:CreateTexture(nil, "BORDER")
-    borderTop:SetTexture(0.3, 0.3, 0.3, 0.8)
-    borderTop:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
-    borderTop:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
-    borderTop:SetHeight(1)
-    btn.borderTop = borderTop
-
-    local borderBot = btn:CreateTexture(nil, "BORDER")
-    borderBot:SetTexture(0.3, 0.3, 0.3, 0.8)
-    borderBot:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
-    borderBot:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
-    borderBot:SetHeight(1)
-    btn.borderBot = borderBot
-
-    local borderL = btn:CreateTexture(nil, "BORDER")
-    borderL:SetTexture(0.3, 0.3, 0.3, 0.8)
-    borderL:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
-    borderL:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
-    borderL:SetWidth(1)
-    btn.borderL = borderL
-
-    local borderR = btn:CreateTexture(nil, "BORDER")
-    borderR:SetTexture(0.3, 0.3, 0.3, 0.8)
-    borderR:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
-    borderR:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
-    borderR:SetWidth(1)
-    btn.borderR = borderR
-
     local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("CENTER", btn, "CENTER", 0, 0)
     label:SetText(text)
-    label:SetTextColor(0.7, 0.7, 0.7)
+    label:SetTextColor(0, 0.8, 1)
     label:SetShadowColor(0, 0, 0, 1)
     label:SetShadowOffset(1, -1)
     btn.label = label
 
     local capturedTip = tooltip
-    local hR = hoverColor and hoverColor.r or 0
-    local hG = hoverColor and hoverColor.g or 0.8
-    local hB = hoverColor and hoverColor.b or 1
     btn:SetScript("OnEnter", function()
-        label:SetTextColor(1, 1, 1)
-        this.borderTop:SetTexture(hR, hG, hB, 0.6)
-        this.borderBot:SetTexture(hR, hG, hB, 0.6)
-        this.borderL:SetTexture(hR, hG, hB, 0.6)
-        this.borderR:SetTexture(hR, hG, hB, 0.6)
+        label:SetTextColor(0.5, 0.9, 1)
         if capturedTip then
             GameTooltip:SetOwner(this, "ANCHOR_BOTTOM")
             GameTooltip:AddLine(capturedTip, 1, 1, 1)
@@ -725,11 +724,7 @@ local function CreateTitleBarButton(parent, text, tooltip, width, hoverColor, on
         end
     end)
     btn:SetScript("OnLeave", function()
-        label:SetTextColor(0.7, 0.7, 0.7)
-        this.borderTop:SetTexture(0.3, 0.3, 0.3, 0.8)
-        this.borderBot:SetTexture(0.3, 0.3, 0.3, 0.8)
-        this.borderL:SetTexture(0.3, 0.3, 0.3, 0.8)
-        this.borderR:SetTexture(0.3, 0.3, 0.3, 0.8)
+        label:SetTextColor(0, 0.8, 1)
         GameTooltip:Hide()
     end)
     btn:SetScript("OnClick", onClick)
@@ -907,7 +902,7 @@ end
 -- Announce to chat
 ---------------------------------------------------------------------------
 
-function P.AnnounceToChannel(frame, channel)
+function P.AnnounceToChannel(frame, channel, channelId)
     if not frame or not frame.pc then return end
     if not channel then return end
     local pc = frame.pc
@@ -929,7 +924,9 @@ function P.AnnounceToChannel(frame, channel)
     end
     local durText = P.FormatDuration(duration)
 
-    SendChatMessage("[Parsec] " .. viewLabel .. " (" .. segLabel .. ") " .. durText, channel)
+    -- channelId is used for custom channels (SendChatMessage 4th arg)
+    local lang = nil
+    SendChatMessage("[Parsec] " .. viewLabel .. " (" .. segLabel .. ") " .. durText, channel, lang, channelId)
 
     local count = math.min(table.getn(sorted), 5)
     for i = 1, count do
@@ -944,7 +941,7 @@ function P.AnnounceToChannel(frame, channel)
         else
             valStr = P.FormatNumber(entry.value)
         end
-        SendChatMessage(i .. ". " .. entry.name .. " - " .. valStr .. pctStr, channel)
+        SendChatMessage(i .. ". " .. entry.name .. " - " .. valStr .. pctStr, channel, lang, channelId)
     end
 end
 

@@ -566,6 +566,7 @@ function F:CreateSidebar()
         { name = "Bars",       icon = self.ICONS.general },
         { name = "Window",     icon = self.ICONS.windows },
         { name = "Automation", icon = self.ICONS.automation },
+        { name = "Channels",   icon = self.ICONS.general },
         { name = "About",      icon = self.ICONS.about },
         { name = "Debug",      icon = self.ICONS.about },
     }
@@ -707,8 +708,9 @@ function F:BuildPanel(idx)
     if idx == 1 then self:BuildBarsPanel(panel, idx)
     elseif idx == 2 then self:BuildWindowPanel(panel, idx)
     elseif idx == 3 then self:BuildAutomationPanel(panel, idx)
-    elseif idx == 4 then self:BuildAboutPanel(panel, idx)
-    elseif idx == 5 then self:BuildDebugPanel(panel, idx)
+    elseif idx == 4 then self:BuildChannelsPanel(panel, idx)
+    elseif idx == 5 then self:BuildAboutPanel(panel, idx)
+    elseif idx == 6 then self:BuildDebugPanel(panel, idx)
     end
 end
 
@@ -859,6 +861,258 @@ function F:BuildAutomationPanel(panel, idx)
 end
 
 -- ============================================================
+-- CHANNELS PANEL (announce channel selection with chat colors)
+-- ============================================================
+
+-- Standard channels (always shown)
+F.STANDARD_CHANNELS = {
+    { key = "SAY",           label = "Say (/s)",             chatType = "SAY" },
+    { key = "PARTY",         label = "Party (/p)",           chatType = "PARTY" },
+    { key = "GUILD",         label = "Guild (/g)",           chatType = "GUILD" },
+    { key = "RAID",          label = "Raid (/raid)",         chatType = "RAID" },
+    { key = "BATTLEGROUND",  label = "Battleground (/bg)",   chatType = "BATTLEGROUND" },
+}
+
+-- Dynamic channel rows (for cleanup/rebuild)
+F.channelRows = {}
+F.channelsPanel = nil
+F.channelsYStart = 0
+
+function F:BuildChannelsPanel(panel, idx)
+    local y = self.PADDING
+    y = self:CreateSectionHeader(panel, "Standard Channels", y)
+
+    self.channelsPanel = panel
+    self.channelsYStart = y
+
+    -- Standard channel checkboxes
+    for i = 1, table.getn(self.STANDARD_CHANNELS) do
+        local ch = self.STANDARD_CHANNELS[i]
+        y = self:CreateChannelRow(panel, ch.key, ch.label, ch.chatType, y)
+    end
+
+    -- Separator + Custom channels header
+    y = y + 4
+    self.customChannelsHeaderY = y
+    y = self:CreateSectionHeader(panel, "Custom Channels", y)
+    self.customChannelsStartY = y
+
+    -- Container for dynamic custom channel rows
+    self.customChannelsContainer = CreateFrame("Frame", nil, panel)
+    self.customChannelsContainer:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -y)
+    self.customChannelsContainer:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, -y)
+    self.customChannelsContainer:SetHeight(200)
+
+    -- Build custom channel rows
+    self:RebuildCustomChannelRows()
+end
+
+function F:CreateChannelRow(parent, chKey, label, chatType, yOffset)
+    local row = CreateFrame("Button", nil, parent)
+    row:SetHeight(self.CHECK_SIZE + 2)
+    row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -yOffset)
+    row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -yOffset)
+
+    -- Checkbox
+    local cb = CreateFrame("CheckButton", nil, row)
+    cb:SetWidth(self.CHECK_SIZE)
+    cb:SetHeight(self.CHECK_SIZE)
+    cb:SetPoint("LEFT", row, "LEFT", 0, 0)
+
+    local cbBG = cb:CreateTexture(nil, "BACKGROUND")
+    cbBG:SetAllPoints(cb)
+    cbBG:SetTexture(self.DARK[1], self.DARK[2], self.DARK[3], 0.8)
+
+    local cbBorder = cb:CreateTexture(nil, "BORDER")
+    cbBorder:SetWidth(self.CHECK_SIZE + 2)
+    cbBorder:SetHeight(self.CHECK_SIZE + 2)
+    cbBorder:SetPoint("CENTER", cb, "CENTER", 0, 0)
+    cbBorder:SetTexture(0.3, 0.3, 0.3, 1)
+    cb:SetNormalTexture(cbBorder)
+
+    local checkTex = cb:CreateTexture(nil, "OVERLAY")
+    checkTex:SetWidth(self.CHECK_SIZE - 6)
+    checkTex:SetHeight(self.CHECK_SIZE - 6)
+    checkTex:SetPoint("CENTER", cb, "CENTER", 0, 0)
+    checkTex:SetTexture(self.CYAN[1], self.CYAN[2], self.CYAN[3], 1)
+    cb:SetCheckedTexture(checkTex)
+
+    local hlTex = cb:CreateTexture(nil, "HIGHLIGHT")
+    hlTex:SetAllPoints(cb)
+    hlTex:SetTexture(1, 1, 1, 0.1)
+    cb:SetHighlightTexture(hlTex)
+
+    -- Channel color from ChatTypeInfo
+    local cr, cg, cb2 = 1, 1, 1
+    if ChatTypeInfo and ChatTypeInfo[chatType] then
+        cr = ChatTypeInfo[chatType].r or 1
+        cg = ChatTypeInfo[chatType].g or 1
+        cb2 = ChatTypeInfo[chatType].b or 1
+    end
+
+    -- Color swatch (small square showing channel color)
+    local swatch = row:CreateTexture(nil, "ARTWORK")
+    swatch:SetWidth(12)
+    swatch:SetHeight(12)
+    swatch:SetPoint("LEFT", cb, "RIGHT", 6, 0)
+    swatch:SetTexture(cr, cg, cb2, 1)
+
+    -- Label text in channel color
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    text:SetPoint("LEFT", swatch, "RIGHT", 6, 0)
+    text:SetText(label)
+    text:SetTextColor(cr, cg, cb2)
+
+    -- State from settings
+    local ec = P.settings.enabledChannels or {}
+    if ec[chKey] then cb:SetChecked(1) else cb:SetChecked(nil) end
+
+    -- Click handlers
+    local capturedKey = chKey
+    local capturedCb = cb
+    row:SetScript("OnClick", function()
+        local checked = not capturedCb:GetChecked()
+        if checked then capturedCb:SetChecked(1) else capturedCb:SetChecked(nil) end
+        if not P.settings.enabledChannels then P.settings.enabledChannels = {} end
+        P.settings.enabledChannels[capturedKey] = checked
+        P.SaveSettings()
+    end)
+
+    cb:SetScript("OnClick", function()
+        local checked = (this:GetChecked() == 1)
+        if not P.settings.enabledChannels then P.settings.enabledChannels = {} end
+        P.settings.enabledChannels[capturedKey] = checked
+        P.SaveSettings()
+    end)
+
+    return yOffset + self.CHECK_SIZE + self.SPACING
+end
+
+function F:RebuildCustomChannelRows()
+    -- Clear old dynamic rows
+    for i = 1, table.getn(self.channelRows) do
+        self.channelRows[i]:Hide()
+    end
+    self.channelRows = {}
+
+    if not self.customChannelsContainer then return end
+    local container = self.customChannelsContainer
+
+    local y = 0
+    local found = false
+
+    -- GetChannelList returns: id1, name1, id2, name2, ...
+    if GetChannelList then
+        local chList = { GetChannelList() }
+        for i = 1, table.getn(chList), 2 do
+            local chId = chList[i]
+            local chName = chList[i + 1]
+            if chName then
+                found = true
+                local chKey = "CHANNEL_" .. chName
+
+                local row = CreateFrame("Button", nil, container)
+                row:SetHeight(self.CHECK_SIZE + 2)
+                row:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -y)
+                row:SetPoint("TOPRIGHT", container, "TOPRIGHT", 0, -y)
+
+                -- Checkbox
+                local cb = CreateFrame("CheckButton", nil, row)
+                cb:SetWidth(self.CHECK_SIZE)
+                cb:SetHeight(self.CHECK_SIZE)
+                cb:SetPoint("LEFT", row, "LEFT", 0, 0)
+
+                local cbBG = cb:CreateTexture(nil, "BACKGROUND")
+                cbBG:SetAllPoints(cb)
+                cbBG:SetTexture(self.DARK[1], self.DARK[2], self.DARK[3], 0.8)
+
+                local cbBorder = cb:CreateTexture(nil, "BORDER")
+                cbBorder:SetWidth(self.CHECK_SIZE + 2)
+                cbBorder:SetHeight(self.CHECK_SIZE + 2)
+                cbBorder:SetPoint("CENTER", cb, "CENTER", 0, 0)
+                cbBorder:SetTexture(0.3, 0.3, 0.3, 1)
+                cb:SetNormalTexture(cbBorder)
+
+                local checkTex = cb:CreateTexture(nil, "OVERLAY")
+                checkTex:SetWidth(self.CHECK_SIZE - 6)
+                checkTex:SetHeight(self.CHECK_SIZE - 6)
+                checkTex:SetPoint("CENTER", cb, "CENTER", 0, 0)
+                checkTex:SetTexture(self.CYAN[1], self.CYAN[2], self.CYAN[3], 1)
+                cb:SetCheckedTexture(checkTex)
+
+                -- Channel color (per-channel: CHANNEL1, CHANNEL2, etc.)
+                local chatType = "CHANNEL" .. chId
+                local cr, cg, cb2 = 1, 0.75, 0.75
+                if ChatTypeInfo and ChatTypeInfo[chatType] then
+                    cr = ChatTypeInfo[chatType].r or cr
+                    cg = ChatTypeInfo[chatType].g or cg
+                    cb2 = ChatTypeInfo[chatType].b or cb2
+                elseif ChatTypeInfo and ChatTypeInfo["CHANNEL"] then
+                    cr = ChatTypeInfo["CHANNEL"].r or cr
+                    cg = ChatTypeInfo["CHANNEL"].g or cg
+                    cb2 = ChatTypeInfo["CHANNEL"].b or cb2
+                end
+
+                local swatch = row:CreateTexture(nil, "ARTWORK")
+                swatch:SetWidth(12)
+                swatch:SetHeight(12)
+                swatch:SetPoint("LEFT", cb, "RIGHT", 6, 0)
+                swatch:SetTexture(cr, cg, cb2, 1)
+
+                local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                text:SetPoint("LEFT", swatch, "RIGHT", 6, 0)
+                text:SetText(chName .. " (/" .. chId .. ")")
+                text:SetTextColor(cr, cg, cb2)
+
+                -- State
+                local ec = P.settings.enabledChannels or {}
+                if ec[chKey] then cb:SetChecked(1) else cb:SetChecked(nil) end
+
+                local capturedKey = chKey
+                local capturedCb = cb
+                row:SetScript("OnClick", function()
+                    local checked = not capturedCb:GetChecked()
+                    if checked then capturedCb:SetChecked(1) else capturedCb:SetChecked(nil) end
+                    if not P.settings.enabledChannels then P.settings.enabledChannels = {} end
+                    P.settings.enabledChannels[capturedKey] = checked
+                    P.SaveSettings()
+                end)
+
+                cb:SetScript("OnClick", function()
+                    local checked = (this:GetChecked() == 1)
+                    if not P.settings.enabledChannels then P.settings.enabledChannels = {} end
+                    P.settings.enabledChannels[capturedKey] = checked
+                    P.SaveSettings()
+                end)
+
+                table.insert(self.channelRows, row)
+                y = y + self.CHECK_SIZE + self.SPACING
+            end
+        end
+    end
+
+    if not found then
+        local hint = container:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        hint:SetPoint("TOPLEFT", container, "TOPLEFT", 4, 0)
+        hint:SetText("|cff666666No custom channels joined|r")
+        -- Wrap in a frame so we can hide it on rebuild
+        local hintFrame = CreateFrame("Frame", nil, container)
+        hintFrame:SetHeight(16)
+        hintFrame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+        hintFrame:SetPoint("TOPRIGHT", container, "TOPRIGHT", 0, 0)
+        hint:SetParent(hintFrame)
+        hint:SetPoint("LEFT", hintFrame, "LEFT", 4, 0)
+        table.insert(self.channelRows, hintFrame)
+    end
+end
+
+function F:RefreshChannelsPanel()
+    if self.customChannelsContainer then
+        self:RebuildCustomChannelRows()
+    end
+end
+
+-- ============================================================
 -- ABOUT PANEL
 -- ============================================================
 function F:BuildAboutPanel(panel, idx)
@@ -880,6 +1134,8 @@ function F:BuildAboutPanel(panel, idx)
         "  /parsec debug - Debug mode",
         "  /parsec pets - Pet owner cache",
         "  /parsec stats - Statistics",
+        "  /parsec history - Saved fights",
+        "  /parsec fake - Test data",
         "  /parsec help - All commands",
     }
 
@@ -1122,8 +1378,13 @@ function F:RefreshPanel(idx)
         ctrls.barTexture.UpdateDisplay()
     end
 
+    -- Channels panel: rebuild dynamic rows
+    if idx == 4 then
+        self:RefreshChannelsPanel()
+    end
+
     -- Debug log
-    if idx == 5 then
+    if idx == 6 then
         self:RefreshDebugLog()
     end
 end
