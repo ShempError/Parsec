@@ -68,9 +68,8 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 ## Known Limitations (Alpha)
 
 - Only tested in solo and small group content
-- Raid (40-man) performance not yet validated
+- Raid (40-man) tested once successfully, but needs ongoing validation after major changes
 - No death log or damage breakdown by spell
-- No report-to-chat functionality yet
 - Threat tracking not implemented
 
 ## Architecture
