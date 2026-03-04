@@ -1,5 +1,5 @@
 -- Parsec: Window UI
--- 3 fixed-view windows: Damage, Healing, Effective Healing
+-- Fixed-view windows: Damage, Healing, Effective Healing, Mana Gain
 -- All frames created in Lua (no XML dependency)
 
 local P = Parsec
@@ -18,6 +18,7 @@ local WINDOW_DEFS = {
     { viewType = "damage",  title = "Damage" },
     { viewType = "healing", title = "Healing" },
     { viewType = "effheal", title = "Eff. Healing" },
+    { viewType = "mana",    title = "Mana Gain" },
 }
 
 ---------------------------------------------------------------------------
@@ -117,6 +118,32 @@ function P.ShowBarTooltip(bar)
             end
             GameTooltip:AddDoubleLine(
                 sp.name .. critPct,
+                P.FormatNumber(sp.data.total) .. " - " .. pct,
+                1, 1, 1, 0.8, 0.8, 0.8
+            )
+        end
+    elseif vt == "mana" then
+        GameTooltip:AddDoubleLine("Total Mana Gained:", P.FormatNumber(data.mana_gain_total), 0.2, 0.6, 1, 1, 1, 1)
+        local playerDur = data.last_action - data.first_action
+        if playerDur < 1 then playerDur = duration end
+        GameTooltip:AddDoubleLine("Mana/sec:", string.format("%.1f", data.mana_gain_total / playerDur), 0.2, 0.6, 1, 1, 1, 1)
+        GameTooltip:AddLine(" ")
+
+        local spells = {}
+        for spellName, sp in pairs(data.mana_gain_spells) do
+            table.insert(spells, { name = spellName, data = sp })
+        end
+        table.sort(spells, function(a, b) return a.data.total > b.data.total end)
+
+        for i = 1, math.min(table.getn(spells), 10) do
+            local sp = spells[i]
+            local pct = P.FormatPct(sp.data.total, data.mana_gain_total)
+            local extra = ""
+            if sp.data.hits > 0 then
+                extra = string.format(" (%dx)", sp.data.hits)
+            end
+            GameTooltip:AddDoubleLine(
+                sp.name .. extra,
                 P.FormatNumber(sp.data.total) .. " - " .. pct,
                 1, 1, 1, 0.8, 0.8, 0.8
             )
@@ -329,13 +356,14 @@ end
 -- Create all 3 windows
 ---------------------------------------------------------------------------
 
-for idx = 1, table.getn(WINDOW_DEFS) do
+local numWindows = table.getn(WINDOW_DEFS)
+for idx = 1, numWindows do
     local def = WINDOW_DEFS[idx]
 
     local f = CreateFrame("Frame", "ParsecWin" .. idx, UIParent)
     f:SetWidth(220)
     f:SetHeight(200)
-    f:SetPoint("CENTER", UIParent, "CENTER", (idx - 2) * 230, 0)
+    f:SetPoint("CENTER", UIParent, "CENTER", (idx - (numWindows + 1) / 2) * 230, 0)
     f:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",

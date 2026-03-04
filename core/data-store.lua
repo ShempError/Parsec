@@ -21,6 +21,8 @@ local function NewPlayerEntry()
         heal_spells = {},
         drain_received = 0,
         drain_spells = {},
+        mana_gain_total = 0,
+        mana_gain_spells = {},
         first_action = 0,
         last_action = 0,
     }
@@ -107,8 +109,26 @@ function DS:AddDrain(target, source, spellName, amount, resource)
     sp.hits = sp.hits + 1
 end
 
+-- Add mana gain for a player (target-centric: who received the mana)
+function DS:AddManaGain(target, source, spellName, amount)
+    if not target or not spellName then return end
+    local now = GetTime()
+
+    local p = self:GetPlayer(target)
+    p.mana_gain_total = p.mana_gain_total + amount
+    if p.first_action == 0 then p.first_action = now end
+    p.last_action = now
+
+    if not p.mana_gain_spells[spellName] then
+        p.mana_gain_spells[spellName] = { total = 0, hits = 0, source = source or "?" }
+    end
+    local sp = p.mana_gain_spells[spellName]
+    sp.total = sp.total + amount
+    sp.hits = sp.hits + 1
+end
+
 -- Get sorted player list for a view
--- viewType: "damage", "healing", "effheal"
+-- viewType: "damage", "healing", "effheal", "drains", "mana"
 -- Returns: sorted, duration, raidTotal
 function DS:GetSorted(viewType)
     local duration = P.combatState:GetDuration()
@@ -127,6 +147,8 @@ function DS:GetSorted(viewType)
             value = data.heal_effective
         elseif viewType == "drains" then
             value = data.drain_received
+        elseif viewType == "mana" then
+            value = data.mana_gain_total
         end
 
         if value > 0 then

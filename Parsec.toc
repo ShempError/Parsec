@@ -14,6 +14,7 @@ core\debug.lua
 modules\damage.lua
 modules\healing.lua
 modules\drains.lua
+modules\energize.lua
 ui\window.xml
 ui\window.lua
 core\bootstrap.lua
