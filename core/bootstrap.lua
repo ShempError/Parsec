@@ -46,7 +46,6 @@ local function SetupCVars()
         "NP_EnableAutoAttackEvents",
         "NP_EnableSpellHealEvents",
         "NP_EnableSpellGoEvents",  -- for totem ownership tracking
-        "NP_EnableSpellEnergizeEvents",  -- for mana gain tracking
     }
 
     local enabled = 0
@@ -94,8 +93,16 @@ SlashCmdList["PARSEC"] = function(msg)
     elseif msg == "hide" then
         pp.HideAllWindows()
 
-    elseif msg == "reset" then
-        pp.ResetData()
+    elseif msg == "reset" or msg == "resetall" then
+        if pp.dataStore then
+            pp.dataStore:ResetAll()
+        end
+
+    elseif msg == "resetcurrent" then
+        if pp.dataStore then
+            pp.dataStore:ResetCurrent()
+            pp.Print("Current segment reset.")
+        end
 
     elseif msg == "debug" then
         pp.ToggleDebug()
@@ -141,27 +148,6 @@ SlashCmdList["PARSEC"] = function(msg)
             pp.Print("  No drains recorded.")
         end
 
-    elseif msg == "mana" then
-        -- Show mana gain summary
-        if not pp.dataStore then
-            pp.Print("No data store.")
-            return
-        end
-        pp.Print("--- Mana Gains ---")
-        local count = 0
-        for name, data in pairs(pp.dataStore.current.players) do
-            if data.mana_gain_total and data.mana_gain_total > 0 then
-                pp.Print("  " .. name .. ": " .. data.mana_gain_total .. " total mana gained")
-                for spell, info in pairs(data.mana_gain_spells) do
-                    pp.Print("    " .. spell .. ": " .. info.total .. " (" .. info.hits .. "x)")
-                end
-                count = count + 1
-            end
-        end
-        if count == 0 then
-            pp.Print("  No mana gains recorded.")
-        end
-
     elseif msg == "missed" then
         -- Show unhandled/missed CHAT_MSG events
         local missed = pp.missedEvents or {}
@@ -197,17 +183,33 @@ SlashCmdList["PARSEC"] = function(msg)
     elseif msg == "dump" then
         pp.DumpArgs("ManualDump")
 
+    elseif msg == "options" or msg == "opt" or msg == "config" then
+        pp.ToggleOptions()
+
+    elseif msg == "minimap" then
+        if ParsecMinimapButton then
+            if ParsecMinimapButton:IsVisible() then
+                ParsecMinimapButton:Hide()
+                pp.Print("Minimap button |cffff4444hidden|r.")
+            else
+                ParsecMinimapButton:Show()
+                pp.Print("Minimap button |cff00ff00shown|r.")
+            end
+        end
+
     elseif msg == "help" then
         pp.Print("--- Parsec Commands ---")
         pp.Print("/parsec - Toggle all windows")
         pp.Print("/parsec show - Show all windows")
         pp.Print("/parsec hide - Hide all windows")
         pp.Print("/parsec reset - Reset all data")
+        pp.Print("/parsec resetcurrent - Reset current segment only")
+        pp.Print("/parsec options - Open options panel")
+        pp.Print("/parsec minimap - Toggle minimap button")
         pp.Print("/parsec debug - Toggle debug (pet attribution only)")
         pp.Print("/parsec verbose - Toggle verbose (raw event args)")
         pp.Print("/parsec pets - Show pet/totem owner cache")
         pp.Print("/parsec drains - Show resource drains received")
-        pp.Print("/parsec mana - Show mana gains")
         pp.Print("/parsec missed - Show unhandled CHAT_MSG events")
         pp.Print("/parsec stats - Show statistics")
         pp.Print("/parsec diag - Load diagnostics")
@@ -229,6 +231,9 @@ initFrame:SetScript("OnEvent", function()
     -- Use Parsec global directly
     local pp = Parsec
     if not pp then return end
+
+    -- Load settings from SavedVariables
+    pp.LoadSettings()
 
     pp.Print("v" .. pp.VERSION .. " loaded.")
     pp.Print("Files: " .. table.concat(pp._loadedFiles, ", "))
@@ -256,6 +261,9 @@ initFrame:SetScript("OnEvent", function()
     pp.ScanGroupClasses()
     pp.ScanGroupPets()
     pp.ScanGroupMembers()
+
+    -- Apply settings (opacity, lock, minimap visibility)
+    pp.ApplySettings()
 
     -- Show all windows
     if table.getn(pp.windows) > 0 then

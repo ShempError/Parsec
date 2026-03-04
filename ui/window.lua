@@ -1,6 +1,6 @@
 -- Parsec: Window UI
--- Fixed-view windows: Damage, Healing, Effective Healing, Mana Gain
--- All frames created in Lua (no XML dependency)
+-- Configurable-view windows with per-window view/segment cycling
+-- Title bar buttons: Settings, Reset, Announce, View cycle, Segment toggle
 
 local P = Parsec
 if not P then return end
@@ -9,32 +9,47 @@ table.insert(P._loadedFiles, "window")
 
 P.windows = {}
 
-local BAR_HEIGHT = 14
-local BAR_SPACING = 1
 local MAX_BARS = 20
 local UPDATE_INTERVAL = 0.5
 
+-- View cycle order
+local VIEW_CYCLE = { "damage", "healing", "dps", "hps" }
+local VIEW_LABELS = {
+    damage  = "Damage",
+    healing = "Healing",
+    dps     = "DPS",
+    hps     = "HPS",
+}
+local SEGMENT_LABELS = {
+    current = "Current",
+    overall = "Overall",
+}
+
 local WINDOW_DEFS = {
-    { viewType = "damage",  title = "Damage" },
-    { viewType = "healing", title = "Healing" },
-    { viewType = "effheal", title = "Eff. Healing" },
-    { viewType = "mana",    title = "Mana Gain" },
+    { viewType = "damage",  segment = "current", title = "Damage" },
+    { viewType = "healing", segment = "current", title = "Healing" },
+    { viewType = "dps",     segment = "current", title = "DPS" },
 }
 
 ---------------------------------------------------------------------------
--- Bar Creation
+-- Bar Creation (settings-driven)
 ---------------------------------------------------------------------------
 
 local function CreateBar(parent)
+    local s = P.settings or {}
+    local barH = s.barHeight or 14
+    local texIdx = s.barTexture or 1
+    local texPath = P.BAR_TEXTURES and P.BAR_TEXTURES[texIdx] or "Interface\\TargetingFrame\\UI-StatusBar"
+
     local bar = CreateFrame("StatusBar", nil, parent)
-    bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    bar:SetStatusBarTexture(texPath)
     bar:SetMinMaxValues(0, 1)
     bar:SetValue(0)
-    bar:SetHeight(BAR_HEIGHT)
+    bar:SetHeight(barH)
     bar:EnableMouse(true)
 
     bar.bg = bar:CreateTexture(nil, "BACKGROUND")
-    bar.bg:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    bar.bg:SetTexture(texPath)
     bar.bg:SetAllPoints(bar)
     bar.bg:SetVertexColor(0.1, 0.1, 0.1, 0.6)
 
@@ -93,10 +108,11 @@ function P.ShowBarTooltip(bar)
     local cc = P.GetClassColor(name)
     GameTooltip:AddLine(name, cc.r, cc.g, cc.b)
 
-    local duration = P.combatState:GetDuration()
+    local segment = bar.segment or "overall"
+    local duration = P.combatState:GetDuration(segment)
     if duration < 1 then duration = 1 end
 
-    if vt == "damage" then
+    if vt == "damage" or vt == "dps" then
         GameTooltip:AddDoubleLine("Total Damage:", P.FormatNumber(data.damage_total), 1, 0.82, 0, 1, 1, 1)
         local playerDur = data.last_action - data.first_action
         if playerDur < 1 then playerDur = duration end
@@ -122,34 +138,7 @@ function P.ShowBarTooltip(bar)
                 1, 1, 1, 0.8, 0.8, 0.8
             )
         end
-    elseif vt == "mana" then
-        GameTooltip:AddDoubleLine("Total Mana Gained:", P.FormatNumber(data.mana_gain_total), 0.2, 0.6, 1, 1, 1, 1)
-        local playerDur = data.last_action - data.first_action
-        if playerDur < 1 then playerDur = duration end
-        GameTooltip:AddDoubleLine("Mana/sec:", string.format("%.1f", data.mana_gain_total / playerDur), 0.2, 0.6, 1, 1, 1, 1)
-        GameTooltip:AddLine(" ")
-
-        local spells = {}
-        for spellName, sp in pairs(data.mana_gain_spells) do
-            table.insert(spells, { name = spellName, data = sp })
-        end
-        table.sort(spells, function(a, b) return a.data.total > b.data.total end)
-
-        for i = 1, math.min(table.getn(spells), 10) do
-            local sp = spells[i]
-            local pct = P.FormatPct(sp.data.total, data.mana_gain_total)
-            local extra = ""
-            if sp.data.hits > 0 then
-                extra = string.format(" (%dx)", sp.data.hits)
-            end
-            GameTooltip:AddDoubleLine(
-                sp.name .. extra,
-                P.FormatNumber(sp.data.total) .. " - " .. pct,
-                1, 1, 1, 0.8, 0.8, 0.8
-            )
-        end
     else
-        -- healing or effheal
         GameTooltip:AddDoubleLine("Total Healing:", P.FormatNumber(data.heal_total), 0.2, 1, 0.2, 1, 1, 1)
         GameTooltip:AddDoubleLine("Effective:", P.FormatNumber(data.heal_effective), 0.2, 1, 0.2, 1, 1, 1)
         if data.heal_total > 0 then
@@ -187,6 +176,88 @@ function P.ShowBarTooltip(bar)
 end
 
 ---------------------------------------------------------------------------
+-- Title bar icon button helper
+---------------------------------------------------------------------------
+
+local function CreateTitleButton(parent, iconPath, tooltip, onClick)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetWidth(14)
+    btn:SetHeight(14)
+
+    local icon = btn:CreateTexture(nil, "ARTWORK")
+    icon:SetAllPoints(btn)
+    icon:SetTexture(iconPath)
+
+    local hl = btn:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints(btn)
+    hl:SetTexture(1, 1, 1, 0.2)
+
+    local capturedTip = tooltip
+    btn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine(capturedTip, 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    btn:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    btn:SetScript("OnClick", onClick)
+
+    return btn
+end
+
+---------------------------------------------------------------------------
+-- Cycle view type for a window
+---------------------------------------------------------------------------
+
+local function CycleView(frame)
+    local pc = frame.pc
+    local cur = pc.viewType
+    local nextIdx = 1
+    for i = 1, table.getn(VIEW_CYCLE) do
+        if VIEW_CYCLE[i] == cur then
+            nextIdx = i + 1
+            if nextIdx > table.getn(VIEW_CYCLE) then nextIdx = 1 end
+            break
+        end
+    end
+    pc.viewType = VIEW_CYCLE[nextIdx]
+    pc.scrollOffset = 0
+    P.UpdateWindowTitle(frame)
+    P.UpdateParsecWindow(frame)
+end
+
+---------------------------------------------------------------------------
+-- Toggle segment for a window
+---------------------------------------------------------------------------
+
+local function ToggleSegment(frame)
+    local pc = frame.pc
+    if pc.segment == "current" then
+        pc.segment = "overall"
+    else
+        pc.segment = "current"
+    end
+    pc.scrollOffset = 0
+    P.UpdateWindowTitle(frame)
+    P.UpdateParsecWindow(frame)
+end
+
+---------------------------------------------------------------------------
+-- Update window title text
+---------------------------------------------------------------------------
+
+function P.UpdateWindowTitle(frame)
+    local pc = frame.pc
+    if not pc then return end
+    local viewLabel = VIEW_LABELS[pc.viewType] or pc.viewType
+    local segLabel = SEGMENT_LABELS[pc.segment] or pc.segment
+    local duration = P.combatState:GetDuration(pc.segment)
+    local durText = P.FormatDuration(duration)
+    frame.titleText:SetText(viewLabel .. " (" .. segLabel .. ") " .. durText)
+end
+
+---------------------------------------------------------------------------
 -- Update a single window
 ---------------------------------------------------------------------------
 
@@ -197,19 +268,18 @@ function P.UpdateParsecWindow(frame)
     local ds = P.dataStore
     if not ds then return end
 
-    local sorted, duration, raidTotal = ds:GetSorted(pc.viewType)
+    local s = P.settings or {}
+    local barH = s.barHeight or 14
+    local barSpc = s.barSpacing or 1
 
-    -- Update title with duration
-    local durText = P.FormatDuration(duration)
-    frame.titleText:SetText(pc.title .. " " .. durText)
+    local sorted, duration, raidTotal = ds:GetSorted(pc.viewType, pc.segment)
+
+    -- Update title
+    P.UpdateWindowTitle(frame)
 
     local totalEntries = table.getn(sorted)
-
-    -- Top value for bar fill (relative to #1 player)
     local topValue = 0
-    if totalEntries > 0 then
-        topValue = sorted[1].value
-    end
+    if totalEntries > 0 then topValue = sorted[1].value end
 
     local visibleBars = 0
     local yOffset = 0
@@ -219,24 +289,29 @@ function P.UpdateParsecWindow(frame)
     totalBar:ClearAllPoints()
     totalBar:SetPoint("TOPLEFT", frame.container, "TOPLEFT", 0, 0)
     totalBar:SetPoint("RIGHT", frame.container, "RIGHT", 0, 0)
+    totalBar:SetHeight(barH)
     totalBar:SetStatusBarColor(0.4, 0.4, 0.4, 0.85)
     totalBar:SetValue(1)
     totalBar.rank:SetText("")
     totalBar.name:SetText("Total")
     totalBar.name:SetTextColor(1, 1, 1)
-    totalBar.value:SetText(P.FormatNumber(raidTotal))
+
+    -- Format total value based on view type
+    if pc.viewType == "dps" or pc.viewType == "hps" then
+        totalBar.value:SetText(string.format("%.1f", raidTotal))
+    else
+        totalBar.value:SetText(P.FormatNumber(raidTotal))
+    end
     totalBar.playerName = nil
     totalBar.playerData = nil
     totalBar:Show()
     visibleBars = 1
-    yOffset = BAR_HEIGHT + BAR_SPACING
+    yOffset = barH + barSpc
 
-    -- Calculate how many bars fit in the container
     local containerH = frame.container:GetHeight()
-    local maxVisible = math.floor((containerH - yOffset) / (BAR_HEIGHT + BAR_SPACING))
+    local maxVisible = math.floor((containerH - yOffset) / (barH + barSpc))
     if maxVisible < 0 then maxVisible = 0 end
 
-    -- Player bars
     for i = 1, math.min(totalEntries, maxVisible) do
         local entryIdx = i + pc.scrollOffset
         if entryIdx > totalEntries then break end
@@ -249,6 +324,7 @@ function P.UpdateParsecWindow(frame)
         bar:ClearAllPoints()
         bar:SetPoint("TOPLEFT", frame.container, "TOPLEFT", 0, -yOffset)
         bar:SetPoint("RIGHT", frame.container, "RIGHT", 0, 0)
+        bar:SetHeight(barH)
 
         local cc = P.GetClassColor(entry.name)
         bar:SetStatusBarColor(cc.r, cc.g, cc.b, 0.85)
@@ -261,26 +337,28 @@ function P.UpdateParsecWindow(frame)
         bar.name:SetText(entry.name)
         bar.name:SetTextColor(cc.r, cc.g, cc.b)
 
-        -- Value + percentage of raid total
         local pctOfTotal = ""
         if raidTotal > 0 then
             pctOfTotal = " (" .. string.format("%.1f%%", (entry.value / raidTotal) * 100) .. ")"
         end
-        bar.value:SetText(P.FormatNumber(entry.value) .. pctOfTotal)
+
+        if pc.viewType == "dps" or pc.viewType == "hps" then
+            bar.value:SetText(string.format("%.1f", entry.value) .. pctOfTotal)
+        else
+            bar.value:SetText(P.FormatNumber(entry.value) .. pctOfTotal)
+        end
 
         bar.playerName = entry.name
         bar.playerData = entry.raw
         bar.viewType = pc.viewType
+        bar.segment = pc.segment
 
         bar:Show()
-        yOffset = yOffset + BAR_HEIGHT + BAR_SPACING
+        yOffset = yOffset + barH + barSpc
     end
 
-    -- Hide unused bars
     for i = visibleBars + 1, table.getn(pc.bars) do
-        if pc.bars[i] then
-            pc.bars[i]:Hide()
-        end
+        if pc.bars[i] then pc.bars[i]:Hide() end
     end
 end
 
@@ -295,6 +373,55 @@ function P.UpdateAllWindows()
 end
 
 ---------------------------------------------------------------------------
+-- Announce to chat
+---------------------------------------------------------------------------
+
+function P.Announce(frame)
+    if not frame or not frame.pc then return end
+    local pc = frame.pc
+    local ds = P.dataStore
+    if not ds then return end
+
+    local sorted, duration, raidTotal = ds:GetSorted(pc.viewType, pc.segment)
+    if table.getn(sorted) == 0 then
+        P.Print("Nothing to announce.")
+        return
+    end
+
+    -- Determine channel
+    local channel = nil
+    if GetNumRaidMembers() > 0 then
+        channel = "RAID"
+    elseif GetNumPartyMembers() > 0 then
+        channel = "PARTY"
+    else
+        channel = "SAY"
+    end
+
+    local viewLabel = VIEW_LABELS[pc.viewType] or pc.viewType
+    local segLabel = SEGMENT_LABELS[pc.segment] or pc.segment
+    local durText = P.FormatDuration(duration)
+
+    SendChatMessage("[Parsec] " .. viewLabel .. " (" .. segLabel .. ") " .. durText, channel)
+
+    local count = math.min(table.getn(sorted), 5)
+    for i = 1, count do
+        local entry = sorted[i]
+        local pctStr = ""
+        if raidTotal > 0 then
+            pctStr = string.format(" (%.1f%%)", (entry.value / raidTotal) * 100)
+        end
+        local valStr
+        if pc.viewType == "dps" or pc.viewType == "hps" then
+            valStr = string.format("%.1f", entry.value)
+        else
+            valStr = P.FormatNumber(entry.value)
+        end
+        SendChatMessage(i .. ". " .. entry.name .. " - " .. valStr .. pctStr, channel)
+    end
+end
+
+---------------------------------------------------------------------------
 -- Window resize handler
 ---------------------------------------------------------------------------
 
@@ -302,7 +429,6 @@ function P.OnWindowResize(frame)
     if not frame then return end
     local w = frame:GetWidth()
     local h = frame:GetHeight()
-    frame.titleBG:SetWidth(w - 8)
     frame.container:SetWidth(w - 8)
     frame.container:SetHeight(h - 28)
     P.UpdateParsecWindow(frame)
@@ -314,7 +440,7 @@ end
 
 function P.ResetData()
     if P.dataStore then
-        P.dataStore:Reset()
+        P.dataStore:ResetAll()
     end
     P.UpdateAllWindows()
 end
@@ -353,8 +479,10 @@ function P.HideAllWindows()
 end
 
 ---------------------------------------------------------------------------
--- Create all 3 windows
+-- Create all windows
 ---------------------------------------------------------------------------
+
+local TEX_PATH = "Interface\\AddOns\\Parsec\\textures\\"
 
 local numWindows = table.getn(WINDOW_DEFS)
 for idx = 1, numWindows do
@@ -367,9 +495,7 @@ for idx = 1, numWindows do
     f:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 16,
+        tile = true, tileSize = 16, edgeSize = 16,
         insets = { left = 4, right = 4, top = 4, bottom = 4 },
     })
     f:SetBackdropColor(0, 0, 0, 0.8)
@@ -381,63 +507,80 @@ for idx = 1, numWindows do
     f:SetMaxResize(400, 600)
     f:Hide()
 
-    -- Store window data on frame (avoids upvalue capture in closures)
+    -- Capture loop variable for closures
+    local capturedDef = def
+
     f.pc = {
         viewType = def.viewType,
+        segment = def.segment or "current",
         title = def.title,
         bars = {},
         scrollOffset = 0,
         updateTimer = 0,
     }
 
-    -- Title bar background
-    f.titleBG = f:CreateTexture(nil, "BACKGROUND")
-    f.titleBG:SetTexture(0.1, 0.1, 0.1, 0.8)
+    -- Title bar background (banner-style)
+    f.titleBG = f:CreateTexture(nil, "ARTWORK")
+    f.titleBG:SetTexture(TEX_PATH .. "banner")
     f.titleBG:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
+    f.titleBG:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
     f.titleBG:SetHeight(20)
-    f.titleBG:SetWidth(212)
 
     -- Title text
     f.titleText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    f.titleText:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -7)
+    f.titleText:SetPoint("LEFT", f.titleBG, "LEFT", 4, 0)
     f.titleText:SetTextColor(0, 0.8, 1)
-    f.titleText:SetText(def.title .. " [0.0s]")
+    f.titleText:SetText(def.title .. " (Current) [0.0s]")
 
-    -- Close button
-    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-    close:SetWidth(20)
-    close:SetHeight(20)
-    close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
-    close:SetScript("OnClick", function()
+    -- Title bar buttons (right-aligned, 14x14 each)
+    -- Close button (custom, not UIPanelCloseButton)
+    local closeBtn = CreateFrame("Button", nil, f)
+    closeBtn:SetWidth(14)
+    closeBtn:SetHeight(14)
+    closeBtn:SetPoint("RIGHT", f.titleBG, "RIGHT", -2, 0)
+    local closeTxt = closeBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    closeTxt:SetPoint("CENTER", closeBtn, "CENTER", 0, 0)
+    closeTxt:SetText("X")
+    closeTxt:SetTextColor(0.6, 0.6, 0.6)
+    closeBtn:SetScript("OnEnter", function()
+        closeTxt:SetTextColor(1, 0.3, 0.3)
+    end)
+    closeBtn:SetScript("OnLeave", function()
+        closeTxt:SetTextColor(0.6, 0.6, 0.6)
+    end)
+    closeBtn:SetScript("OnClick", function()
         this:GetParent():Hide()
     end)
 
-    -- Reset button (small "R")
-    local resetBtn = CreateFrame("Button", nil, f)
-    resetBtn:SetWidth(16)
-    resetBtn:SetHeight(16)
-    resetBtn:SetPoint("RIGHT", close, "LEFT", 0, 0)
-    local resetBG = resetBtn:CreateTexture(nil, "BACKGROUND")
-    resetBG:SetTexture(0.2, 0.2, 0.2, 0.6)
-    resetBG:SetAllPoints(resetBtn)
-    local resetHL = resetBtn:CreateTexture(nil, "HIGHLIGHT")
-    resetHL:SetTexture(0.4, 0.4, 0.4, 0.4)
-    resetHL:SetAllPoints(resetBtn)
-    local resetText = resetBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    resetText:SetPoint("CENTER", resetBtn, "CENTER", 0, 0)
-    resetText:SetText("R")
-    resetText:SetTextColor(1, 0.3, 0.3)
-    resetBtn:SetScript("OnClick", function()
+    -- Segment toggle button
+    local segBtn = CreateTitleButton(f, TEX_PATH .. "icon-segment-current", "Toggle: Current / Overall", function()
+        ToggleSegment(this:GetParent())
+    end)
+    segBtn:SetPoint("RIGHT", closeBtn, "LEFT", -2, 0)
+
+    -- View cycle button
+    local viewBtn = CreateTitleButton(f, TEX_PATH .. "icon-view-damage", "Cycle view: Damage > Healing > DPS > HPS", function()
+        CycleView(this:GetParent())
+    end)
+    viewBtn:SetPoint("RIGHT", segBtn, "LEFT", -2, 0)
+
+    -- Announce button
+    local annBtn = CreateTitleButton(f, TEX_PATH .. "icon-announce", "Announce to chat", function()
+        P.Announce(this:GetParent())
+    end)
+    annBtn:SetPoint("RIGHT", viewBtn, "LEFT", -2, 0)
+
+    -- Reset button
+    local rstBtn = CreateTitleButton(f, TEX_PATH .. "icon-reset", "Reset all data", function()
         P.ResetData()
     end)
-    resetBtn:SetScript("OnEnter", function()
-        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Reset all data")
-        GameTooltip:Show()
+    rstBtn:SetPoint("RIGHT", annBtn, "LEFT", -2, 0)
+
+    -- Settings button
+    local optBtn = CreateTitleButton(f, TEX_PATH .. "icon-settings", "Open options", function()
+        P.ToggleOptions()
     end)
-    resetBtn:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    optBtn:SetPoint("RIGHT", rstBtn, "LEFT", -2, 0)
 
     -- Bar container
     f.container = CreateFrame("Frame", nil, f)
@@ -452,7 +595,7 @@ for idx = 1, numWindows do
     grip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
     grip:EnableMouse(true)
     local gripTex = grip:CreateTexture(nil, "OVERLAY")
-    gripTex:SetTexture("Interface\\AddOns\\Parsec\\textures\\ResizeGrip")
+    gripTex:SetTexture(TEX_PATH .. "ResizeGrip")
     gripTex:SetAllPoints(grip)
     grip:SetScript("OnMouseDown", function()
         this:GetParent():StartSizing("BOTTOMRIGHT")
@@ -465,7 +608,7 @@ for idx = 1, numWindows do
 
     -- Drag to move
     f:SetScript("OnMouseDown", function()
-        if arg1 == "LeftButton" then
+        if arg1 == "LeftButton" and not (P.settings and P.settings.lockWindows) then
             this:StartMoving()
         end
     end)

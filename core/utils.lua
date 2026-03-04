@@ -4,7 +4,7 @@
 Parsec = {}
 local P = Parsec
 
-P.VERSION = "0.1.0"
+P.VERSION = "0.2.0"
 P._loadedFiles = { "utils" }
 
 -- Class colors (same as RAID_CLASS_COLORS but guaranteed available)
@@ -51,15 +51,6 @@ end
 function P.FormatPct(value, total)
     if not total or total == 0 then return "0%" end
     return string.format("%.1f%%", (value / total) * 100)
-end
-
--- Get class color for a player name
-function P.GetClassColor(name)
-    local class = P.dataStore and P.dataStore.classes[name]
-    if class and P.CLASS_COLORS[class] then
-        return P.CLASS_COLORS[class]
-    end
-    return P.CLASS_COLORS_UNKNOWN
 end
 
 -- Deterministic color from string hash (for unknown classes)
@@ -167,7 +158,11 @@ function P.ScanGroupMembers()
 end
 
 function P.IsGroupMember(name)
-    return P.groupMembers[name] == true
+    if not name then return false end
+    if P.groupMembers[name] then return true end
+    -- Fallback: always consider the player a group member
+    if name == UnitName("player") then return true end
+    return false
 end
 
 -- Format duration for title bar: [24.0s] or [1:24]

@@ -1,0 +1,163 @@
+-- Parsec: Settings
+-- Centralized settings management via ParsecCharDB
+
+local P = Parsec
+if not P then return end
+
+table.insert(P._loadedFiles, "settings")
+
+---------------------------------------------------------------------------
+-- Defaults
+---------------------------------------------------------------------------
+
+P.DEFAULTS = {
+    autoShow     = false,
+    autoHide     = false,
+    lockWindows  = false,
+    showMinimap  = true,
+    bgOpacity    = 0.8,
+    mergePets    = true,
+    trackAll     = false,
+    barHeight    = 14,
+    barSpacing   = 1,
+    barTexture   = 1,
+    pastelColors = false,
+    showBackdrop = true,
+}
+
+P.settings = {}
+
+---------------------------------------------------------------------------
+-- Bar Textures
+---------------------------------------------------------------------------
+
+P.BAR_TEXTURES = {
+    "Interface\\AddOns\\Parsec\\textures\\bar-solid",
+    "Interface\\AddOns\\Parsec\\textures\\bar-gradient",
+    "Interface\\AddOns\\Parsec\\textures\\bar-striped",
+    "Interface\\AddOns\\Parsec\\textures\\bar-glossy",
+}
+
+P.BAR_TEXTURE_NAMES = {
+    "Solid",
+    "Gradient",
+    "Striped",
+    "Glossy",
+}
+
+---------------------------------------------------------------------------
+-- Pastel Class Colors (softer versions of standard)
+---------------------------------------------------------------------------
+
+P.CLASS_COLORS_PASTEL = {
+    WARRIOR     = { r = 0.78, g = 0.61, b = 0.43 },
+    PALADIN     = { r = 0.96, g = 0.55, b = 0.73 },
+    HUNTER      = { r = 0.67, g = 0.83, b = 0.45 },
+    ROGUE       = { r = 1.00, g = 0.96, b = 0.41 },
+    PRIEST      = { r = 0.90, g = 0.90, b = 0.90 },
+    SHAMAN      = { r = 0.36, g = 0.54, b = 0.96 },
+    MAGE        = { r = 0.56, g = 0.78, b = 0.96 },
+    WARLOCK     = { r = 0.68, g = 0.58, b = 0.86 },
+    DRUID       = { r = 1.00, g = 0.68, b = 0.46 },
+}
+
+---------------------------------------------------------------------------
+-- Get class color (respects pastelColors setting)
+---------------------------------------------------------------------------
+
+function P.GetClassColor(name)
+    local class = P.dataStore and P.dataStore.classes and P.dataStore.classes[name]
+    if not class then
+        return { r = 0.6, g = 0.6, b = 0.6 }
+    end
+    if P.settings.pastelColors and P.CLASS_COLORS_PASTEL[class] then
+        return P.CLASS_COLORS_PASTEL[class]
+    end
+    return P.CLASS_COLORS[class] or { r = 0.6, g = 0.6, b = 0.6 }
+end
+
+---------------------------------------------------------------------------
+-- Load: merge saved settings with defaults
+---------------------------------------------------------------------------
+
+function P.LoadSettings()
+    if not ParsecCharDB then
+        ParsecCharDB = {}
+    end
+    if not ParsecCharDB.settings then
+        ParsecCharDB.settings = {}
+    end
+
+    -- Copy defaults, then overlay saved values
+    for k, v in pairs(P.DEFAULTS) do
+        if ParsecCharDB.settings[k] ~= nil then
+            P.settings[k] = ParsecCharDB.settings[k]
+        else
+            P.settings[k] = v
+        end
+    end
+end
+
+---------------------------------------------------------------------------
+-- Save: write current settings to SavedVariables
+---------------------------------------------------------------------------
+
+function P.SaveSettings()
+    if not ParsecCharDB then
+        ParsecCharDB = {}
+    end
+    ParsecCharDB.settings = {}
+    for k, v in pairs(P.settings) do
+        ParsecCharDB.settings[k] = v
+    end
+end
+
+---------------------------------------------------------------------------
+-- Apply: enforce all settings on live UI
+---------------------------------------------------------------------------
+
+function P.ApplySettings()
+    local s = P.settings
+    local numWin = table.getn(P.windows)
+
+    for i = 1, numWin do
+        local f = P.windows[i]
+
+        -- Lock windows
+        f:SetMovable(not s.lockWindows)
+
+        -- Background opacity + backdrop visibility
+        if s.showBackdrop then
+            f:SetBackdropColor(0, 0, 0, s.bgOpacity)
+            f:SetBackdropBorderColor(0.3, 0.3, 0.3, s.bgOpacity)
+        else
+            f:SetBackdropColor(0, 0, 0, 0)
+            f:SetBackdropBorderColor(0, 0, 0, 0)
+        end
+
+        -- Bar texture + height + spacing
+        if f.pc and f.pc.bars then
+            local texPath = P.BAR_TEXTURES[s.barTexture] or P.BAR_TEXTURES[1]
+            for j = 1, table.getn(f.pc.bars) do
+                local bar = f.pc.bars[j]
+                bar:SetStatusBarTexture(texPath)
+                if bar.bg then bar.bg:SetTexture(texPath) end
+                bar:SetHeight(s.barHeight)
+            end
+        end
+    end
+
+    -- Minimap button visibility
+    if ParsecMinimapButton then
+        if s.showMinimap then
+            ParsecMinimapButton:Show()
+        else
+            ParsecMinimapButton:Hide()
+        end
+    end
+
+    -- Force window update to refresh colors
+    if P.UpdateAllWindows then
+        P.UpdateAllWindows()
+    end
+end

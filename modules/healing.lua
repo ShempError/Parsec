@@ -12,8 +12,8 @@ local function OnHeal(data)
     -- Only record healing during combat (like DPSMate)
     if P.combatState and not P.combatState:InCombat() then return end
 
-    -- Only record healing from group members (filters NPCs + enemy faction)
-    if not P.IsGroupMember(data.source) then return end
+    -- Only record healing from group members (unless trackAll is on)
+    if not P.settings.trackAll and not P.IsGroupMember(data.source) then return end
 
     P.dataStore:AddHeal(data.source, data.target, data.spellName, data.amount, data.overheal, data.crit)
 end

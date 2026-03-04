@@ -1,5 +1,5 @@
 -- Parsec: Data Store
--- Player data accumulators, single accumulating segment
+-- Player data accumulators, dual-segment architecture (current + overall)
 
 local P = Parsec
 if not P then return end
@@ -21,8 +21,6 @@ local function NewPlayerEntry()
         heal_spells = {},
         drain_received = 0,
         drain_spells = {},
-        mana_gain_total = 0,
-        mana_gain_spells = {},
         first_action = 0,
         last_action = 0,
     }
@@ -32,25 +30,37 @@ local function NewSegment()
     return {
         players = {},
         startTime = GetTime(),
+        duration = 0,
     }
 end
 
 DS.current = NewSegment()
+DS.overall = NewSegment()
 
--- Get or create player entry
-function DS:GetPlayer(name)
-    if not self.current.players[name] then
-        self.current.players[name] = NewPlayerEntry()
+---------------------------------------------------------------------------
+-- Get or create player entry in a segment
+---------------------------------------------------------------------------
+
+function DS:GetPlayer(name, segment)
+    local seg = segment or self.current
+    if not seg.players[name] then
+        seg.players[name] = NewPlayerEntry()
     end
-    return self.current.players[name]
+    return seg.players[name]
 end
 
--- Add damage for a player
-function DS:AddDamage(source, target, spellName, amount, crit)
-    if not source or not spellName then return end
+---------------------------------------------------------------------------
+-- Internal: apply damage to a single segment
+---------------------------------------------------------------------------
+
+local function ApplyDamage(seg, source, spellName, amount, crit)
+    local p = seg.players[source]
+    if not p then
+        p = NewPlayerEntry()
+        seg.players[source] = p
+    end
     local now = GetTime()
 
-    local p = self:GetPlayer(source)
     p.damage_total = p.damage_total + amount
     if p.first_action == 0 then p.first_action = now end
     p.last_action = now
@@ -66,13 +76,19 @@ function DS:AddDamage(source, target, spellName, amount, crit)
     if amount > sp.max then sp.max = amount end
 end
 
--- Add healing for a player
-function DS:AddHeal(source, target, spellName, amount, overheal, crit)
-    if not source or not spellName then return end
+---------------------------------------------------------------------------
+-- Internal: apply healing to a single segment
+---------------------------------------------------------------------------
+
+local function ApplyHeal(seg, source, spellName, amount, overheal, crit)
+    local p = seg.players[source]
+    if not p then
+        p = NewPlayerEntry()
+        seg.players[source] = p
+    end
     local effective = amount - (overheal or 0)
     local now = GetTime()
 
-    local p = self:GetPlayer(source)
     p.heal_total = p.heal_total + amount
     p.heal_effective = p.heal_effective + effective
     p.heal_overheal = p.heal_overheal + (overheal or 0)
@@ -90,54 +106,77 @@ function DS:AddHeal(source, target, spellName, amount, overheal, crit)
     if crit then sp.crits = sp.crits + 1 end
 end
 
--- Add resource drain received by a player
-function DS:AddDrain(target, source, spellName, amount, resource)
-    if not target or not spellName then return end
+---------------------------------------------------------------------------
+-- Internal: apply drain to a single segment
+---------------------------------------------------------------------------
+
+local function ApplyDrain(seg, target, source, spellName, amount, resource)
+    local p = seg.players[target]
+    if not p then
+        p = NewPlayerEntry()
+        seg.players[target] = p
+    end
     local now = GetTime()
 
-    local p = self:GetPlayer(target)
     p.drain_received = p.drain_received + amount
     if p.first_action == 0 then p.first_action = now end
     p.last_action = now
 
-    local key = spellName
-    if not p.drain_spells[key] then
-        p.drain_spells[key] = { total = 0, hits = 0, resource = resource or "Mana", source = source or "?" }
+    if not p.drain_spells[spellName] then
+        p.drain_spells[spellName] = { total = 0, hits = 0, resource = resource or "Mana", source = source or "?" }
     end
-    local sp = p.drain_spells[key]
+    local sp = p.drain_spells[spellName]
     sp.total = sp.total + amount
     sp.hits = sp.hits + 1
 end
 
--- Add mana gain for a player (target-centric: who received the mana)
-function DS:AddManaGain(target, source, spellName, amount)
+---------------------------------------------------------------------------
+-- Public: Add damage (writes to both segments)
+---------------------------------------------------------------------------
+
+function DS:AddDamage(source, target, spellName, amount, crit)
+    if not source or not spellName then return end
+    ApplyDamage(self.current, source, spellName, amount, crit)
+    ApplyDamage(self.overall, source, spellName, amount, crit)
+end
+
+---------------------------------------------------------------------------
+-- Public: Add healing (writes to both segments)
+---------------------------------------------------------------------------
+
+function DS:AddHeal(source, target, spellName, amount, overheal, crit)
+    if not source or not spellName then return end
+    ApplyHeal(self.current, source, spellName, amount, overheal, crit)
+    ApplyHeal(self.overall, source, spellName, amount, overheal, crit)
+end
+
+---------------------------------------------------------------------------
+-- Public: Add drain (writes to both segments)
+---------------------------------------------------------------------------
+
+function DS:AddDrain(target, source, spellName, amount, resource)
     if not target or not spellName then return end
-    local now = GetTime()
-
-    local p = self:GetPlayer(target)
-    p.mana_gain_total = p.mana_gain_total + amount
-    if p.first_action == 0 then p.first_action = now end
-    p.last_action = now
-
-    if not p.mana_gain_spells[spellName] then
-        p.mana_gain_spells[spellName] = { total = 0, hits = 0, source = source or "?" }
-    end
-    local sp = p.mana_gain_spells[spellName]
-    sp.total = sp.total + amount
-    sp.hits = sp.hits + 1
+    ApplyDrain(self.current, target, source, spellName, amount, resource)
+    ApplyDrain(self.overall, target, source, spellName, amount, resource)
 end
 
+---------------------------------------------------------------------------
 -- Get sorted player list for a view
--- viewType: "damage", "healing", "effheal", "drains", "mana"
--- Returns: sorted, duration, raidTotal
-function DS:GetSorted(viewType)
-    local duration = P.combatState:GetDuration()
+-- viewType: "damage", "healing", "effheal", "drains", "dps", "hps"
+-- segment: "current" or "overall" (default: "current")
+---------------------------------------------------------------------------
+
+function DS:GetSorted(viewType, segment)
+    local seg = self.current
+    if segment == "overall" then seg = self.overall end
+
+    local duration = P.combatState:GetDuration(segment)
     if duration < 1 then duration = 1 end
 
     local sorted = {}
     local raidTotal = 0
 
-    for name, data in pairs(self.current.players) do
+    for name, data in pairs(seg.players) do
         local value = 0
         if viewType == "damage" then
             value = data.damage_total
@@ -147,8 +186,10 @@ function DS:GetSorted(viewType)
             value = data.heal_effective
         elseif viewType == "drains" then
             value = data.drain_received
-        elseif viewType == "mana" then
-            value = data.mana_gain_total
+        elseif viewType == "dps" then
+            value = data.damage_total / duration
+        elseif viewType == "hps" then
+            value = data.heal_effective / duration
         end
 
         if value > 0 then
@@ -166,11 +207,31 @@ function DS:GetSorted(viewType)
     return sorted, duration, raidTotal
 end
 
--- Full reset
-function DS:Reset()
+---------------------------------------------------------------------------
+-- Reset current segment only (called on combat end)
+---------------------------------------------------------------------------
+
+function DS:ResetCurrent()
     self.current = NewSegment()
+end
+
+---------------------------------------------------------------------------
+-- Reset everything (both segments)
+---------------------------------------------------------------------------
+
+function DS:ResetAll()
+    self.current = NewSegment()
+    self.overall = NewSegment()
     if P.combatState then
         P.combatState:Reset()
     end
-    P.Print("Data reset.")
+    P.Print("All data reset.")
+end
+
+---------------------------------------------------------------------------
+-- Legacy compat: full reset
+---------------------------------------------------------------------------
+
+function DS:Reset()
+    self:ResetAll()
 end

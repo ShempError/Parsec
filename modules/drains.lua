@@ -18,4 +18,4 @@ local function OnDrain(data)
     P.dataStore:AddDrain(data.target, data.source, data.spellName, data.amount, data.resource)
 end
 
-P.eventBus:Subscribe("DRAIN", OnDrain)
+P.eventBus:Register("DRAIN", OnDrain)

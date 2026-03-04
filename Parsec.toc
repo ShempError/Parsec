@@ -1,8 +1,8 @@
 ## Interface: 11200
-## Title: Parsec
+## Title: Parsec - Damage Meter
 ## Notes: Combat analysis powered by structured events. Requires SuperWoW + Nampower.
-## Author: Mueller
-## Version: 0.1.0
+## Author: Shemp
+## Version: 0.2.0
 ## SavedVariables: ParsecDB
 ## SavedVariablesPerCharacter: ParsecCharDB
 
@@ -11,10 +11,12 @@ core\eventbus.lua
 core\combat-state.lua
 core\data-store.lua
 core\debug.lua
+core\settings.lua
 modules\damage.lua
 modules\healing.lua
 modules\drains.lua
-modules\energize.lua
 ui\window.xml
 ui\window.lua
+ui\minimap-button.lua
+ui\options.lua
 core\bootstrap.lua

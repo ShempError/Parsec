@@ -36,7 +36,6 @@ function P.ShowStats()
         for _ in pairs(P.dataStore.overall.players) do numOverall = numOverall + 1 end
         P.Print("Players (current): " .. numCurrent)
         P.Print("Players (overall): " .. numOverall)
-        P.Print("History segments: " .. table.getn(P.dataStore.history))
     end
 
     -- Memory usage

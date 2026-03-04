@@ -492,45 +492,6 @@ local function OnSpellHeal()
     bus:Fire("HEAL", data)
 end
 
--- SPELL_ENERGIZE_BY_SELF / SPELL_ENERGIZE_BY_OTHER
--- arg1=targetGuid, arg2=casterGuid, arg3=spellId, arg4=powerType, arg5=amount, arg6=periodic
-local function OnSpellEnergize()
-    local targetGuid = arg1
-    local casterGuid = arg2
-    local spellID = arg3
-    local powerType = tonumber(arg4) or 0
-    local amount = tonumber(arg5) or 0
-    local periodic = (arg6 == 1 or arg6 == true)
-
-    -- Only track mana (powerType 0)
-    if powerType ~= 0 then return end
-
-    local source = P.ResolveName(casterGuid) or casterGuid or "?"
-    local target = P.ResolveName(targetGuid) or targetGuid or "?"
-
-    local spellName = "?"
-    if spellID and SpellInfo then
-        local name = SpellInfo(spellID)
-        if name then spellName = name end
-    end
-
-    local data = {
-        time = GetTime(),
-        type = "ENERGIZE",
-        source = source,
-        target = target,
-        sourceGUID = casterGuid,
-        targetGUID = targetGuid,
-        spellID = spellID,
-        spellName = spellName,
-        amount = amount,
-        powerType = powerType,
-        periodic = periodic,
-    }
-
-    bus:Fire("ENERGIZE", data)
-end
-
 -- SPELL_MISS_SELF / SPELL_MISS_OTHER
 -- arg1=casterGuid, arg2=targetGuid, arg3=spellId, arg4=missInfo
 local function OnSpellMiss()
@@ -833,11 +794,6 @@ bus:RegisterEvent("SPELL_GO_OTHER")
 bus:RegisterEvent("SPELL_HEAL_BY_SELF")
 bus:RegisterEvent("SPELL_HEAL_BY_OTHER")
 
--- Nampower energize events (require NP_EnableSpellEnergizeEvents CVar)
--- Only BY variants: BY_SELF covers player energizes, BY_OTHER covers all others
-bus:RegisterEvent("SPELL_ENERGIZE_BY_SELF")
-bus:RegisterEvent("SPELL_ENERGIZE_BY_OTHER")
-
 -- Nampower miss events
 bus:RegisterEvent("SPELL_MISS_SELF")
 bus:RegisterEvent("SPELL_MISS_OTHER")
@@ -918,10 +874,6 @@ bus:SetScript("OnEvent", function()
     -- Nampower healing
     elseif event == "SPELL_HEAL_BY_SELF" or event == "SPELL_HEAL_BY_OTHER" then
         OnSpellHeal()
-
-    -- Nampower energize
-    elseif event == "SPELL_ENERGIZE_BY_SELF" or event == "SPELL_ENERGIZE_BY_OTHER" then
-        OnSpellEnergize()
 
     -- Nampower spell go (totem tracking)
     elseif event == "SPELL_GO_SELF" or event == "SPELL_GO_OTHER" then

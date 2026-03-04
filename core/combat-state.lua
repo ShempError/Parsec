@@ -25,6 +25,10 @@ function CS:OnCombatStart()
         P.Debug("Combat RESUME (was post-combat)")
     else
         P.Debug("Combat START")
+        -- Auto-show windows on fresh combat start
+        if P.settings and P.settings.autoShow and P.ShowAllWindows then
+            P.ShowAllWindows()
+        end
     end
 
     self.state = "COMBAT"
@@ -49,9 +53,22 @@ function CS:FinalizeSegment()
     self.combatStart = 0
     self.combatEnd = 0
     self.combatDuration = 0
+
+    -- Reset current segment (overall stays intact)
+    if P.dataStore then
+        P.dataStore:ResetCurrent()
+    end
+
+    -- Auto-hide windows after combat ends
+    if P.settings and P.settings.autoHide and P.HideAllWindows then
+        P.HideAllWindows()
+    end
 end
 
-function CS:GetDuration()
+function CS:GetDuration(segment)
+    if segment == "current" then
+        return self.combatDuration
+    end
     return self.overallDuration
 end
 
