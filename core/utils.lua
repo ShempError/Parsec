@@ -97,6 +97,14 @@ function P.ScanGroupClasses()
             if name and class then
                 P.dataStore.classes[name] = string.upper(class)
             end
+            -- Cache GUID -> name for raid members
+            if UnitGUID then
+                local unit = "raid" .. i
+                local guid = UnitGUID(unit)
+                if guid and name and P.guidNames then
+                    P.guidNames[guid] = name
+                end
+            end
         end
     elseif numParty > 0 then
         for i = 1, numParty do
@@ -106,6 +114,13 @@ function P.ScanGroupClasses()
                 local _, class = UnitClass(unit)
                 if class then
                     P.dataStore.classes[name] = class
+                end
+                -- Cache GUID -> name for party members
+                if UnitGUID then
+                    local guid = UnitGUID(unit)
+                    if guid and P.guidNames then
+                        P.guidNames[guid] = name
+                    end
                 end
             end
         end
@@ -117,6 +132,13 @@ function P.ScanGroupClasses()
         local _, playerClass = UnitClass("player")
         if playerClass then
             P.dataStore.classes[playerName] = playerClass
+        end
+        -- Cache player GUID
+        if UnitGUID and P.guidNames then
+            local playerGUID = UnitGUID("player")
+            if playerGUID then
+                P.guidNames[playerGUID] = playerName
+            end
         end
     end
 end
