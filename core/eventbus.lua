@@ -150,7 +150,7 @@ end
 ---------------------------------------------------------------------------
 
 P.petOwners = {}
-P.totemOwners = {}  -- { [totemCreatureName] = ownerName } -- tracked via SPELL_GO
+P.totemCastLog = {}  -- array of { caster=name, spell=spellName, time=T, totemGuid=nil }
 
 function P.ScanGroupPets()
     -- Don't wipe! Merge new entries to keep previously discovered pet mappings
@@ -208,15 +208,20 @@ function P.GetPetOwnerByGUID(guid)
     -- If it's already a group member name, it's a player not a pet
     if P.IsGroupMember(creatureName) then return nil end
 
-    -- 3. Check totem owner cache (populated by SPELL_GO tracking)
-    -- SpellInfo returns "Fire Nova Totem" but creature may be "Fire Nova Totem V"
-    -- So we do substring match: check if any stored totem spell name is found in creatureName
-    local totemOwner = P.totemOwners[creatureName]
-    if not totemOwner then
-        -- Fuzzy match: creature name may include rank that SpellInfo omits
-        for spellName, owner in pairs(P.totemOwners) do
-            if string.find(creatureName, spellName, 1, true) then
-                totemOwner = owner
+    -- 3. Check totem cast log (populated by SPELL_GO tracking)
+    -- FIFO: oldest unassigned cast matched first (first placed = first to attack)
+    -- Fuzzy match: creature name may include rank that SpellInfo omits
+    local totemOwner = nil
+    local creatureLower = string.lower(creatureName)
+    for i = 1, table.getn(P.totemCastLog) do
+        local entry = P.totemCastLog[i]
+        if not entry.totemGuid then
+            local spellLower = string.lower(entry.spell)
+            if creatureLower == spellLower
+                or string.find(creatureLower, spellLower, 1, true)
+                or string.find(spellLower, creatureLower, 1, true) then
+                totemOwner = entry.caster
+                entry.totemGuid = guid
                 break
             end
         end
@@ -592,8 +597,22 @@ local function OnSpellGo()
     if SpellInfo then
         local spellName = SpellInfo(spellId)
         if spellName and string.find(string.lower(spellName), "totem") then
-            P.totemOwners[spellName] = casterName
-            P.Debug("Totem cast: " .. spellName .. " -> " .. casterName)
+            table.insert(P.totemCastLog, {
+                caster = casterName,
+                spell = spellName,
+                time = GetTime(),
+                totemGuid = nil,
+            })
+            P.Debug("Totem cast queued: " .. spellName .. " by " .. casterName)
+            -- Prune entries older than 5 minutes
+            local now = GetTime()
+            local pruned = {}
+            for i = 1, table.getn(P.totemCastLog) do
+                if now - P.totemCastLog[i].time < 300 then
+                    table.insert(pruned, P.totemCastLog[i])
+                end
+            end
+            P.totemCastLog = pruned
         end
     end
 end

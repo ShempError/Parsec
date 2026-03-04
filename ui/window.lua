@@ -58,15 +58,21 @@ local function CreateBar(parent)
     bar.rank:SetWidth(14)
     bar.rank:SetJustifyH("RIGHT")
     bar.rank:SetTextColor(0.6, 0.6, 0.6)
+    bar.rank:SetShadowColor(0, 0, 0, 1)
+    bar.rank:SetShadowOffset(1, -1)
 
     bar.name = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.name:SetPoint("LEFT", bar.rank, "RIGHT", 2, 0)
     bar.name:SetJustifyH("LEFT")
+    bar.name:SetShadowColor(0, 0, 0, 1)
+    bar.name:SetShadowOffset(1, -1)
 
     bar.value = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.value:SetPoint("RIGHT", bar, "RIGHT", -2, 0)
     bar.value:SetJustifyH("RIGHT")
     bar.value:SetTextColor(1, 1, 1)
+    bar.value:SetShadowColor(0, 0, 0, 1)
+    bar.value:SetShadowOffset(1, -1)
 
     bar.name:SetPoint("RIGHT", bar.value, "LEFT", -4, 0)
 
@@ -335,7 +341,7 @@ function P.UpdateParsecWindow(frame)
 
         bar.rank:SetText(entryIdx)
         bar.name:SetText(entry.name)
-        bar.name:SetTextColor(cc.r, cc.g, cc.b)
+        bar.name:SetTextColor(1, 1, 1)
 
         local pctOfTotal = ""
         if raidTotal > 0 then

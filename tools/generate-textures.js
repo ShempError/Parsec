@@ -14,14 +14,20 @@ function writeTGA(filepath, width, height, pixels) {
     header.writeUInt16LE(width, 12);
     header.writeUInt16LE(height, 14);
     header[16] = 32;
-    header[17] = 0x28;
+    header[17] = 0x08; // bottom-up origin (standard TGA), 8 alpha bits
 
+    // Write rows bottom-to-top (standard TGA row order)
     const imageData = Buffer.alloc(width * height * 4);
-    for (let i = 0; i < width * height; i++) {
-        imageData[i * 4 + 0] = pixels[i * 4 + 2]; // B
-        imageData[i * 4 + 1] = pixels[i * 4 + 1]; // G
-        imageData[i * 4 + 2] = pixels[i * 4 + 0]; // R
-        imageData[i * 4 + 3] = pixels[i * 4 + 3]; // A
+    for (let y = 0; y < height; y++) {
+        const outY = height - 1 - y; // flip: source top row -> TGA bottom row
+        for (let x = 0; x < width; x++) {
+            const srcIdx = (y * width + x) * 4;
+            const dstIdx = (outY * width + x) * 4;
+            imageData[dstIdx + 0] = pixels[srcIdx + 2]; // B
+            imageData[dstIdx + 1] = pixels[srcIdx + 1]; // G
+            imageData[dstIdx + 2] = pixels[srcIdx + 0]; // R
+            imageData[dstIdx + 3] = pixels[srcIdx + 3]; // A
+        }
     }
 
     fs.writeFileSync(filepath, Buffer.concat([header, imageData]));
