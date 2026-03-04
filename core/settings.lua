@@ -38,6 +38,10 @@ P.BAR_TEXTURES = {
     "Interface\\AddOns\\Parsec\\textures\\bar-gradient",
     "Interface\\AddOns\\Parsec\\textures\\bar-striped",
     "Interface\\AddOns\\Parsec\\textures\\bar-glossy",
+    "Interface\\AddOns\\Parsec\\textures\\bar-smooth",
+    "Interface\\AddOns\\Parsec\\textures\\bar-flat",
+    "Interface\\AddOns\\Parsec\\textures\\bar-ember",
+    "Interface\\AddOns\\Parsec\\textures\\bar-rain",
 }
 
 P.BAR_TEXTURE_NAMES = {
@@ -45,6 +49,10 @@ P.BAR_TEXTURE_NAMES = {
     "Gradient",
     "Striped",
     "Glossy",
+    "Smooth",
+    "Flat",
+    "Ember",
+    "Rain",
 }
 
 ---------------------------------------------------------------------------

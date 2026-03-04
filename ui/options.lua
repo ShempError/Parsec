@@ -289,7 +289,7 @@ function F:CreateSmallButton(parent, text, width, yOffset, onClick)
 end
 
 -- ============================================================
--- WIDGET: Texture Picker (Prev/Next)
+-- WIDGET: Texture Picker (Prev/Next + full-width preview)
 -- ============================================================
 function F:CreateTexturePicker(parent, label, settingKey, yOffset)
     local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -299,7 +299,10 @@ function F:CreateTexturePicker(parent, label, settingKey, yOffset)
 
     yOffset = yOffset + 14
 
-    -- Container row
+    -- Layout: [Prev 20] [4] [Name 80 fixed] [4] [Next 20] [8] [Preview->RIGHT]
+    local NAME_W = 80
+
+    -- Container row (stretches full width)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(22)
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -yOffset)
@@ -318,29 +321,34 @@ function F:CreateTexturePicker(parent, label, settingKey, yOffset)
     prevBG:SetAllPoints(prev)
     prevBG:SetTexture(F.DARK[1], F.DARK[2], F.DARK[3], 0.8)
 
-    -- Name label
-    local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    nameText:SetPoint("LEFT", prev, "RIGHT", 6, 0)
+    -- Fixed-width name container (prevents layout shift)
+    local nameFrame = CreateFrame("Frame", nil, row)
+    nameFrame:SetWidth(NAME_W)
+    nameFrame:SetHeight(20)
+    nameFrame:SetPoint("LEFT", prev, "RIGHT", 4, 0)
+
+    local nameText = nameFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    nameText:SetPoint("CENTER", nameFrame, "CENTER", 0, 0)
     nameText:SetTextColor(1, 1, 1)
 
-    -- Next button
-    local next = CreateFrame("Button", nil, row)
-    next:SetWidth(20)
-    next:SetHeight(20)
-    next:SetPoint("LEFT", nameText, "RIGHT", 6, 0)
-    local nextText = next:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    nextText:SetPoint("CENTER", next, "CENTER", 0, 0)
+    -- Next button (anchored to fixed-width nameFrame — never shifts)
+    local nextBtn = CreateFrame("Button", nil, row)
+    nextBtn:SetWidth(20)
+    nextBtn:SetHeight(20)
+    nextBtn:SetPoint("LEFT", nameFrame, "RIGHT", 4, 0)
+    local nextText = nextBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    nextText:SetPoint("CENTER", nextBtn, "CENTER", 0, 0)
     nextText:SetText(">")
     nextText:SetTextColor(F.CYAN[1], F.CYAN[2], F.CYAN[3])
-    local nextBG = next:CreateTexture(nil, "BACKGROUND")
-    nextBG:SetAllPoints(next)
+    local nextBG = nextBtn:CreateTexture(nil, "BACKGROUND")
+    nextBG:SetAllPoints(nextBtn)
     nextBG:SetTexture(F.DARK[1], F.DARK[2], F.DARK[3], 0.8)
 
-    -- Preview bar
+    -- Preview bar (stretches from next button to right edge)
     local previewBar = CreateFrame("StatusBar", nil, row)
-    previewBar:SetWidth(120)
-    previewBar:SetHeight(14)
-    previewBar:SetPoint("LEFT", next, "RIGHT", 8, 0)
+    previewBar:SetHeight(16)
+    previewBar:SetPoint("LEFT", nextBtn, "RIGHT", 8, 0)
+    previewBar:SetPoint("RIGHT", row, "RIGHT", 0, 0)
     previewBar:SetMinMaxValues(0, 1)
     previewBar:SetValue(0.7)
     previewBar:SetStatusBarColor(F.CYAN[1], F.CYAN[2], F.CYAN[3])
@@ -372,7 +380,7 @@ function F:CreateTexturePicker(parent, label, settingKey, yOffset)
         UpdateDisplay()
     end)
 
-    next:SetScript("OnClick", function()
+    nextBtn:SetScript("OnClick", function()
         local idx = P.settings[capturedKey] or 1
         idx = idx + 1
         if idx > table.getn(P.BAR_TEXTURES) then idx = 1 end
