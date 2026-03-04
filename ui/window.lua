@@ -693,7 +693,7 @@ function P.CreateWindow(viewType, segment)
 
     -- Title bar background
     f.titleBG = f:CreateTexture(nil, "ARTWORK")
-    f.titleBG:SetTexture(TEX_PATH .. "banner")
+    f.titleBG:SetTexture(TEX_PATH .. "header")
     f.titleBG:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
     f.titleBG:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
     f.titleBG:SetHeight(20)
