@@ -54,6 +54,7 @@ local function CreateBar(parent)
 
     local shadowA = (s.fontShadow ~= false) and 1 or 0
     local shadowOff = (s.fontShadow ~= false) and 1 or 0
+    local outlineFlag = s.fontOutline and "OUTLINE" or ""
 
     bar.rank = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.rank:SetPoint("LEFT", bar, "LEFT", 2, 0)
@@ -75,6 +76,17 @@ local function CreateBar(parent)
     bar.value:SetTextColor(1, 0.82, 0)
     bar.value:SetShadowColor(0, 0, 0, shadowA)
     bar.value:SetShadowOffset(shadowOff, -shadowOff)
+
+    -- Apply font outline if enabled
+    if outlineFlag ~= "" then
+        local fontStrings = { bar.rank, bar.name, bar.value }
+        for k = 1, 3 do
+            local fontPath, fontSize = fontStrings[k]:GetFont()
+            if fontPath then
+                fontStrings[k]:SetFont(fontPath, fontSize, outlineFlag)
+            end
+        end
+    end
 
     bar.name:SetPoint("RIGHT", bar.value, "LEFT", -4, 0)
 

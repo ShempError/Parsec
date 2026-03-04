@@ -692,6 +692,10 @@ function F:BuildBarsPanel(panel, idx)
     ctrls.fontShadow = cb1.checkbox
     y = y4
 
+    local cb3, y6 = self:CreateCheckbox(panel, "Font Outline", "fontOutline", y)
+    ctrls.fontOutline = cb3.checkbox
+    y = y6
+
     y = y + 4
     y = self:CreateSectionHeader(panel, "Data", y)
 

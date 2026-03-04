@@ -22,6 +22,7 @@ P.DEFAULTS = {
     barSpacing   = 1,
     barTexture   = 1,
     fontShadow   = true,
+    fontOutline  = false,
     pastelColors = false,
     showBackdrop = true,
 }
@@ -164,23 +165,24 @@ function P.ApplySettings()
             local texPath = P.BAR_TEXTURES[s.barTexture] or P.BAR_TEXTURES[1]
             local shadowA = s.fontShadow and 1 or 0
             local shadowOff = s.fontShadow and 1 or 0
+            local outlineFlag = s.fontOutline and "OUTLINE" or ""
             for j = 1, table.getn(f.pc.bars) do
                 local bar = f.pc.bars[j]
                 bar:SetStatusBarTexture(texPath)
                 if bar.bg then bar.bg:SetTexture(texPath) end
                 bar:SetHeight(s.barHeight)
-                -- Font shadow on all three FontStrings
-                if bar.rank then
-                    bar.rank:SetShadowColor(0, 0, 0, shadowA)
-                    bar.rank:SetShadowOffset(shadowOff, -shadowOff)
-                end
-                if bar.name then
-                    bar.name:SetShadowColor(0, 0, 0, shadowA)
-                    bar.name:SetShadowOffset(shadowOff, -shadowOff)
-                end
-                if bar.value then
-                    bar.value:SetShadowColor(0, 0, 0, shadowA)
-                    bar.value:SetShadowOffset(shadowOff, -shadowOff)
+                -- Font outline + shadow on all three FontStrings
+                local fontStrings = { bar.rank, bar.name, bar.value }
+                for k = 1, 3 do
+                    local fs = fontStrings[k]
+                    if fs then
+                        local fontPath, fontSize = fs:GetFont()
+                        if fontPath then
+                            fs:SetFont(fontPath, fontSize, outlineFlag)
+                        end
+                        fs:SetShadowColor(0, 0, 0, shadowA)
+                        fs:SetShadowOffset(shadowOff, -shadowOff)
+                    end
                 end
             end
         end
