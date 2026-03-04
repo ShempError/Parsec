@@ -177,6 +177,20 @@ SlashCmdList["PARSEC"] = function(msg)
             end
         end
 
+    elseif msg == "history" then
+        local ds = pp.dataStore
+        if not ds then pp.Print("No dataStore!"); return end
+        local count = ds:GetHistoryCount()
+        if count == 0 then
+            pp.Print("No fights saved.")
+        else
+            pp.Print("--- Fight History (" .. count .. "/" .. (pp.settings.historyLimit or 10) .. ") ---")
+            for i = 1, count do
+                local label = ds:GetHistoryLabel(i) or "?"
+                pp.Print("  [H" .. i .. "] " .. label)
+            end
+        end
+
     elseif msg == "fake" then
         -- Toggle fake data for screenshots (Horde only, no Paladins)
         local ds = pp.dataStore
@@ -194,6 +208,13 @@ SlashCmdList["PARSEC"] = function(msg)
         ds:ResetAll()
         local now = GetTime()
         local fightDur = 47  -- 47 second fight
+
+        -- Include the player's own character
+        local playerName = UnitName("player")
+        local _, playerClass = UnitClass("player")
+        if playerName and playerClass then
+            ds.classes[playerName] = playerClass
+        end
 
         -- Class assignments
         ds.classes["Grommash"]   = "WARRIOR"
@@ -292,6 +313,15 @@ SlashCmdList["PARSEC"] = function(msg)
             ["Healing Wave"]   = { total = 10400, effective = 7280, overheal = 3120, hits = 4, crits = 1 },
         })
 
+        -- Inject player's own character
+        if playerName then
+            Inject(playerName, 38940, 0, 0, {
+                ["Shadow Bolt"]    = { total = 24600, hits = 16, crits = 5, min = 1100, max = 1900 },
+                ["Corruption"]     = { total = 8900, hits = 12, crits = 0, min = 680, max = 780 },
+                ["Immolate"]       = { total = 5440, hits = 7, crits = 2, min = 620, max = 920 },
+            })
+        end
+
         -- Set combat duration on both segments
         ds.current.startTime = now - fightDur
         ds.current.duration = fightDur
@@ -300,8 +330,49 @@ SlashCmdList["PARSEC"] = function(msg)
         pp.combatState.startTime = now - fightDur
         pp.combatState.overallStart = now - fightDur
 
+        -- Inject 3 fake history segments
+        if ds.SaveCurrentToHistory then
+            -- Save current as first history entry
+            ds:SaveCurrentToHistory(fightDur)
+
+            -- Create 2 more varied history entries by temporarily modifying current data
+            local origPlayers = ds.current.players
+
+            -- Helper to scale player data for history
+            local function ScalePlayers(orig, factor)
+                local scaled = {}
+                for pName, d in pairs(orig) do
+                    scaled[pName] = {
+                        damage_total = math.floor(d.damage_total * factor),
+                        heal_total = math.floor(d.heal_total * factor),
+                        heal_effective = math.floor((d.heal_effective or 0) * factor),
+                        heal_overheal = math.floor((d.heal_overheal or 0) * factor),
+                        first_action = d.first_action,
+                        last_action = d.last_action,
+                        damage_spells = d.damage_spells or {},
+                        heal_spells = d.heal_spells or {},
+                    }
+                end
+                return scaled
+            end
+
+            -- History 2: shorter fight (~70% of current)
+            ds.current.players = ScalePlayers(origPlayers, 0.7)
+            ds.current.startTime = now - fightDur - 300
+            ds:SaveCurrentToHistory(math.floor(fightDur * 0.6))
+
+            -- History 3: even shorter fight (~40% of current)
+            ds.current.players = ScalePlayers(origPlayers, 0.4)
+            ds.current.startTime = now - fightDur - 600
+            ds:SaveCurrentToHistory(math.floor(fightDur * 0.3))
+
+            -- Restore original current data
+            ds.current.players = origPlayers
+            ds.current.startTime = now - fightDur
+        end
+
         pp._fakeDataActive = true
-        pp.Print("|cff00ff00Fake data injected!|r 10 players, " .. fightDur .. "s fight. Type /parsec fake again to clear.")
+        pp.Print("|cff00ff00Fake data injected!|r 10 players, " .. fightDur .. "s fight, 3 history segments. Type /parsec fake again to clear.")
         pp.UpdateAllWindows()
 
     elseif msg == "help" then
@@ -313,6 +384,7 @@ SlashCmdList["PARSEC"] = function(msg)
         pp.Print("/parsec resetcurrent - Reset current segment only")
         pp.Print("/parsec options - Open options panel")
         pp.Print("/parsec minimap - Toggle minimap button")
+        pp.Print("/parsec history - Show saved fight history")
         pp.Print("/parsec debug - Toggle debug (pet attribution only)")
         pp.Print("/parsec verbose - Toggle verbose (raw event args)")
         pp.Print("/parsec pets - Show pet/totem owner cache")

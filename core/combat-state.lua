@@ -50,14 +50,17 @@ function CS:FinalizeSegment()
     P.Debug("Segment done -- total: " .. string.format("%.1f", self.overallDuration) .. "s")
     self.state = "IDLE"
     self.timerFrame:Hide()
+
+    -- Save to history BEFORE resetting duration
+    local savedDuration = self.combatDuration
+    if P.dataStore then
+        P.dataStore:SaveCurrentToHistory(savedDuration)
+        P.dataStore:ResetCurrent()
+    end
+
     self.combatStart = 0
     self.combatEnd = 0
     self.combatDuration = 0
-
-    -- Reset current segment (overall stays intact)
-    if P.dataStore then
-        P.dataStore:ResetCurrent()
-    end
 
     -- Auto-hide windows after combat ends
     if P.settings and P.settings.autoHide and P.HideAllWindows then

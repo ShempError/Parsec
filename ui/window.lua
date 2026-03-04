@@ -116,7 +116,7 @@ end
 -- Custom Tooltip with Spell Bars
 ---------------------------------------------------------------------------
 
-local TOOLTIP_WIDTH = 230
+local TOOLTIP_WIDTH = 270
 local TOOLTIP_BAR_HEIGHT = 12
 local TOOLTIP_BAR_SPACING = 1
 local TOOLTIP_PADDING = 8
@@ -124,12 +124,12 @@ local MAX_TOOLTIP_BARS = 10
 
 local tooltipFrame = CreateFrame("Frame", "ParsecBarTooltip", UIParent)
 tooltipFrame:SetBackdrop({
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    bgFile = "Interface\\AddOns\\Parsec\\textures\\window-bg",
+    edgeFile = "Interface\\AddOns\\Parsec\\textures\\window-border",
+    tile = true, tileSize = 128, edgeSize = 16,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 },
 })
-tooltipFrame:SetBackdropColor(0, 0, 0, 0.92)
+tooltipFrame:SetBackdropColor(1, 1, 1, 0.92)
 tooltipFrame:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
 tooltipFrame:SetFrameStrata("TOOLTIP")
 tooltipFrame:SetWidth(TOOLTIP_WIDTH)
@@ -172,6 +172,13 @@ for iBar = 1, MAX_TOOLTIP_BARS do
     sbar.name:SetShadowColor(0, 0, 0, 1)
     sbar.name:SetShadowOffset(1, -1)
 
+    sbar.crit = sbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    sbar.crit:SetJustifyH("RIGHT")
+    sbar.crit:SetTextColor(1, 1, 0)
+    sbar.crit:SetShadowColor(0, 0, 0, 1)
+    sbar.crit:SetShadowOffset(1, -1)
+    sbar.crit:SetWidth(32)
+
     sbar.value = sbar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     sbar.value:SetPoint("RIGHT", sbar, "RIGHT", -2, 0)
     sbar.value:SetJustifyH("RIGHT")
@@ -179,7 +186,8 @@ for iBar = 1, MAX_TOOLTIP_BARS do
     sbar.value:SetShadowColor(0, 0, 0, 1)
     sbar.value:SetShadowOffset(1, -1)
 
-    sbar.name:SetPoint("RIGHT", sbar.value, "LEFT", -2, 0)
+    sbar.crit:SetPoint("RIGHT", sbar, "RIGHT", -82, 0)
+    sbar.name:SetPoint("RIGHT", sbar.crit, "LEFT", -2, 0)
 
     tooltipFrame.spellBars[iBar] = sbar
 end
@@ -200,9 +208,13 @@ function P.ShowBarTooltip(bar)
     local texPath = P.BAR_TEXTURES and P.BAR_TEXTURES[texIdx]
         or "Interface\\TargetingFrame\\UI-StatusBar"
 
-    -- Position tooltip to the right of the bar
+    -- Position tooltip at cursor
+    local cx, cy = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    cx = cx / scale
+    cy = cy / scale
     tooltipFrame:ClearAllPoints()
-    tooltipFrame:SetPoint("TOPLEFT", bar, "TOPRIGHT", 2, TOOLTIP_PADDING)
+    tooltipFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", cx + 16, cy + 8)
 
     -- Title: player name in class color
     tooltipFrame.title:SetText(name)
@@ -331,23 +343,17 @@ function P.ShowBarTooltip(bar)
             sbar:SetStatusBarColor(cc.r * 0.7, cc.g * 0.7, cc.b * 0.7, 0.9)
             sbar:SetValue(pct)
 
-            -- Spell name + crit/OH annotation
-            local nameText = sp.name
-            if isDmg then
-                if sp.data.hits and sp.data.hits > 0 then
-                    nameText = nameText .. string.format(
-                        " (%.0f%%)", (sp.data.crits / sp.data.hits) * 100)
-                end
-            else
-                local spTotal = sp.data.total or 0
-                local oh = sp.data.overheal or 0
-                if spTotal > 0 and oh > 0 then
-                    nameText = nameText .. string.format(
-                        " (%.0f%% OH)", (oh / spTotal) * 100)
-                end
-            end
-            sbar.name:SetText(nameText)
+            -- Spell name (clean, no annotations)
+            sbar.name:SetText(sp.name)
             sbar.name:SetTextColor(1, 1, 1)
+
+            -- Crit column
+            local critText = ""
+            if sp.data.hits and sp.data.hits > 0 and sp.data.crits then
+                critText = string.format("%.0f%%", (sp.data.crits / sp.data.hits) * 100)
+            end
+            sbar.crit:SetText(critText)
+            sbar.crit:SetTextColor(1, 1, 0)
 
             -- Value + percentage of total
             local pctStr = ""
@@ -362,6 +368,11 @@ function P.ShowBarTooltip(bar)
             sbar:Hide()
         end
     end
+
+    -- Apply tooltip opacity from settings
+    local ttAlpha = P.settings.tooltipOpacity or 0.92
+    tooltipFrame:SetBackdropColor(1, 1, 1, ttAlpha)
+    tooltipFrame:SetBackdropBorderColor(0.4, 0.4, 0.4, ttAlpha)
 
     -- Set final height
     tooltipFrame:SetHeight(-(yOff) + TOOLTIP_PADDING)
@@ -429,6 +440,30 @@ local function InitMainMenu()
             P.SaveWindowState()
         end
         UIDropDownMenu_AddButton(info)
+    end
+
+    -- History entries
+    local ds = P.dataStore
+    local histCount = ds and ds:GetHistoryCount() or 0
+    if histCount > 0 then
+        info = {}
+        info.text = "History"
+        info.isTitle = true
+        UIDropDownMenu_AddButton(info)
+        for hi = 1, histCount do
+            local capturedIdx = hi
+            info = {}
+            info.text = "[H" .. hi .. "] " .. (ds:GetHistoryLabel(hi) or "")
+            info.checked = (type(pc.segment) == "number" and pc.segment == capturedIdx)
+            info.func = function()
+                pc.segment = capturedIdx
+                pc.scrollOffset = 0
+                P.UpdateWindowTitle(targetFrame)
+                P.UpdateParsecWindow(targetFrame)
+                P.SaveWindowState()
+            end
+            UIDropDownMenu_AddButton(info)
+        end
     end
 
     -- Separator
@@ -503,6 +538,110 @@ local function InitAnnounceMenu()
     end
 end
 
+-- Segment dropdown init (for right-click on [C]/[O] button)
+local segmentMenuTarget = nil
+
+local function GetPlayerSegmentValue(ds, viewType, segment)
+    if not ds then return 0 end
+    local playerName = UnitName("player")
+    if not playerName then return 0 end
+
+    local seg
+    if segment == "overall" then
+        seg = ds.overall
+    elseif type(segment) == "number" then
+        local entry = ds.history[segment]
+        if not entry then return 0 end
+        seg = entry.segment
+    else
+        seg = ds.current
+    end
+
+    local data = seg and seg.players and seg.players[playerName]
+    if not data then return 0 end
+
+    local duration = ds:GetDuration(segment)
+    if duration < 1 then duration = 1 end
+    local playerDur = (data.last_action or 0) - (data.first_action or 0)
+    if playerDur < 1 then playerDur = duration end
+
+    if viewType == "damage" then
+        return data.damage_total or 0
+    elseif viewType == "dps" then
+        return (data.damage_total or 0) / playerDur
+    elseif viewType == "healing" then
+        return data.heal_total or 0
+    elseif viewType == "hps" then
+        return (data.heal_effective or 0) / playerDur
+    elseif viewType == "effheal" then
+        return data.heal_effective or 0
+    end
+    return 0
+end
+
+local function InitSegmentMenu()
+    if not segmentMenuTarget then return end
+    local targetFrame = segmentMenuTarget
+    local pc = targetFrame.pc
+    if not pc then return end
+    local ds = P.dataStore
+    local vt = pc.viewType or "damage"
+    local isRate = (vt == "dps" or vt == "hps")
+    local info
+
+    local function FmtVal(val)
+        if val <= 0 then return "" end
+        if isRate then
+            return "  |cffffffff" .. string.format("%.1f", val) .. "|r"
+        end
+        return "  |cffffffff" .. P.FormatNumber(val) .. "|r"
+    end
+
+    -- Current / Overall
+    local segments = { "current", "overall" }
+    for i = 1, 2 do
+        local capturedSeg = segments[i]
+        local total = GetPlayerSegmentValue(ds, vt, capturedSeg)
+        local suffix = FmtVal(total)
+        info = {}
+        info.text = SEGMENT_LABELS[capturedSeg] .. suffix
+        info.checked = (pc.segment == capturedSeg)
+        info.func = function()
+            pc.segment = capturedSeg
+            pc.scrollOffset = 0
+            P.UpdateWindowTitle(targetFrame)
+            P.UpdateParsecWindow(targetFrame)
+            P.SaveWindowState()
+        end
+        UIDropDownMenu_AddButton(info)
+    end
+
+    -- History entries
+    local histCount = ds and ds:GetHistoryCount() or 0
+    if histCount > 0 then
+        info = {}
+        info.text = "History"
+        info.isTitle = true
+        UIDropDownMenu_AddButton(info)
+        for hi = 1, histCount do
+            local capturedIdx = hi
+            local total = GetPlayerSegmentValue(ds, vt, hi)
+            local suffix = FmtVal(total)
+            info = {}
+            info.text = "[H" .. hi .. "] " .. (ds:GetHistoryLabel(hi) or "") .. suffix
+            info.checked = (type(pc.segment) == "number" and pc.segment == capturedIdx)
+            info.func = function()
+                pc.segment = capturedIdx
+                pc.scrollOffset = 0
+                P.UpdateWindowTitle(targetFrame)
+                P.UpdateParsecWindow(targetFrame)
+                P.SaveWindowState()
+            end
+            UIDropDownMenu_AddButton(info)
+        end
+    end
+end
+
 -- Shared dropdown frames (context menu style, no visible button)
 local mainMenu = CreateFrame("Frame", "ParsecMainMenu")
 mainMenu.displayMode = "MENU"
@@ -511,6 +650,10 @@ mainMenu.initialize = InitMainMenu
 local announceMenu = CreateFrame("Frame", "ParsecAnnounceMenu")
 announceMenu.displayMode = "MENU"
 announceMenu.initialize = InitAnnounceMenu
+
+local segmentMenu = CreateFrame("Frame", "ParsecSegmentMenu")
+segmentMenu.displayMode = "MENU"
+segmentMenu.initialize = InitSegmentMenu
 
 ---------------------------------------------------------------------------
 -- Text button helper for title bar
@@ -606,6 +749,7 @@ local SEGMENT_COLORS = {
     current = { r = 0, g = 0.8, b = 1 },
     overall = { r = 1, g = 1, b = 0 },
 }
+local HISTORY_COLOR = { r = 1, g = 0.6, b = 0 }
 
 function P.UpdateWindowTitle(frame)
     local pc = frame.pc
@@ -618,9 +762,15 @@ function P.UpdateWindowTitle(frame)
     local durText = P.FormatDuration(duration)
 
     -- Segment button text + color
-    local segText = SEGMENT_TEXTS[pc.segment] or "[?]"
+    local segText, sc
+    if type(pc.segment) == "number" then
+        segText = "[H" .. pc.segment .. "]"
+        sc = HISTORY_COLOR
+    else
+        segText = SEGMENT_TEXTS[pc.segment] or "[?]"
+        sc = SEGMENT_COLORS[pc.segment]
+    end
     frame.segBtn.label:SetText(segText)
-    local sc = SEGMENT_COLORS[pc.segment]
     if sc then
         frame.segBtn.label:SetTextColor(sc.r, sc.g, sc.b)
     end
@@ -771,7 +921,12 @@ function P.AnnounceToChannel(frame, channel)
     end
 
     local viewLabel = VIEW_LABELS[pc.viewType] or pc.viewType
-    local segLabel = SEGMENT_LABELS[pc.segment] or pc.segment
+    local segLabel
+    if type(pc.segment) == "number" then
+        segLabel = "H" .. pc.segment .. " " .. (ds:GetHistoryLabel(pc.segment) or "")
+    else
+        segLabel = SEGMENT_LABELS[pc.segment] or pc.segment
+    end
     local durText = P.FormatDuration(duration)
 
     SendChatMessage("[Parsec] " .. viewLabel .. " (" .. segLabel .. ") " .. durText, channel)
@@ -941,23 +1096,42 @@ function P.CreateWindow(viewType, segment)
     segLabel:SetShadowColor(0, 0, 0, 1)
     segLabel:SetShadowOffset(1, -1)
     segBtn.label = segLabel
+    segBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     segBtn:SetScript("OnClick", function()
-        local pc = this:GetParent().pc
+        local f = this:GetParent()
+        local pc = f.pc
+        if arg1 == "RightButton" then
+            segmentMenuTarget = f
+            ToggleDropDownMenu(1, nil, segmentMenu, "cursor", 0, 0)
+            return
+        end
         if pc.segment == "current" then
             pc.segment = "overall"
         else
             pc.segment = "current"
         end
         pc.scrollOffset = 0
-        P.UpdateWindowTitle(this:GetParent())
-        P.UpdateParsecWindow(this:GetParent())
+        P.UpdateWindowTitle(f)
+        P.UpdateParsecWindow(f)
         P.SaveWindowState()
     end)
     segBtn:SetScript("OnEnter", function()
         this.label:SetTextColor(1, 1, 1)
         GameTooltip:SetOwner(this, "ANCHOR_BOTTOM")
-        GameTooltip:AddLine("[O]verall / [C]urrent", 1, 1, 1)
-        GameTooltip:AddLine("Click to toggle", 0.7, 0.7, 0.7)
+        local pc = this:GetParent().pc
+        if type(pc.segment) == "number" then
+            local ds = P.dataStore
+            local label = ds and ds:GetHistoryLabel(pc.segment) or ("Fight " .. pc.segment)
+            GameTooltip:AddLine("History: " .. label, 1, 0.6, 0)
+        else
+            GameTooltip:AddLine("[O]verall / [C]urrent", 1, 1, 1)
+        end
+        local ds = P.dataStore
+        local histCount = ds and ds:GetHistoryCount() or 0
+        GameTooltip:AddLine("Click to cycle", 0.7, 0.7, 0.7)
+        if histCount > 0 then
+            GameTooltip:AddLine("Right-click: select segment (" .. histCount .. " saved)", 0.7, 0.7, 0.7)
+        end
         GameTooltip:Show()
     end)
     segBtn:SetScript("OnLeave", function()
@@ -1115,9 +1289,14 @@ function P.SaveWindowState()
         local pc = f.pc
         if pc then
             local point, relativeTo, relativePoint, xOfs, yOfs = f:GetPoint(1)
+            -- History segments don't survive reload, save as "current"
+            local savedSegment = pc.segment
+            if type(savedSegment) == "number" then
+                savedSegment = "current"
+            end
             table.insert(saved, {
                 viewType = pc.viewType,
-                segment = pc.segment,
+                segment = savedSegment,
                 width = f:GetWidth(),
                 height = f:GetHeight(),
                 point = point,

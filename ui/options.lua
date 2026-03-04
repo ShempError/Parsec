@@ -778,6 +778,10 @@ function F:BuildWindowPanel(panel, idx)
     ctrls.bgOpacity = sl1
     y = y3
 
+    local sl_tt, y_tt = self:CreateSlider(panel, "Tooltip Opacity:", "tooltipOpacity", 0.3, 1.0, 0.05, y, true)
+    ctrls.tooltipOpacity = sl_tt
+    y = y_tt
+
     y = y + 4
     y = self:CreateSectionHeader(panel, "Actions", y)
 
@@ -838,6 +842,20 @@ function F:BuildAutomationPanel(panel, idx)
     local cb4, y4 = self:CreateCheckbox(panel, "Track all units (not just group)", "trackAll", y)
     ctrls.trackAll = cb4.checkbox
     y = y4
+
+    y = y + 8
+    y = self:CreateSectionHeader(panel, "Fight History", y)
+
+    local sl1, y5 = self:CreateSlider(panel, "Max Saved Fights:", "historyLimit", 1, 25, 1, y, false)
+    ctrls.historyLimit = sl1
+    y = y5
+
+    local btnClear, y6 = self:CreateSmallButton(panel, "Clear History", 90, y, function()
+        if P.dataStore then
+            P.dataStore:ClearHistory()
+        end
+    end)
+    y = y6
 end
 
 -- ============================================================

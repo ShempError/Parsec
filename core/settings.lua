@@ -26,6 +26,8 @@ P.DEFAULTS = {
     pastelColors = false,
     showBackdrop = true,
     clickToCycleView = true,
+    historyLimit = 10,
+    tooltipOpacity = 0.92,
 }
 
 P.settings = {}

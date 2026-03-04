@@ -81,8 +81,8 @@ local function LogMissedEvent(eventName, msg)
         table.remove(P.missedEvents, 1)
     end
 
-    -- Always print to chat so user can see it immediately
-    P.Print("|cffff8800[MISSED]|r " .. msg)
+    -- Only show in debug mode, always visible in Options > Debug message log
+    P.Debug("|cffff8800[MISSED]|r " .. msg)
 end
 
 ---------------------------------------------------------------------------
@@ -661,6 +661,26 @@ local function OnDamageShield()
     end
 
     if not source or not amountStr then
+        -- Try resist pattern: "X's Spell was resisted by Target."
+        -- Also comes through DAMAGESHIELDS channel (e.g. Lightning Strike triggers shield)
+        local _, _, rSource, rSpell, rTarget = string.find(msg, "(.+)'s (.+) was resisted by (.+)%.")
+        if rSource then
+            local data = {
+                time = GetTime(),
+                type = "MISS",
+                source = rSource,
+                target = rTarget,
+                sourceGUID = nil,
+                targetGUID = nil,
+                spellID = 0,
+                spellName = rSpell,
+                missType = "RESIST",
+                amount = 0,
+            }
+            bus:Fire("MISS", data)
+            return
+        end
+
         LogMissedEvent(event, msg)
         return
     end

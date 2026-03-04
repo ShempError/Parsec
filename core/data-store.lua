@@ -10,6 +10,20 @@ P.dataStore = {}
 local DS = P.dataStore
 
 DS.classes = {}  -- { [name] = "WARRIOR", ... }
+DS.history = {}  -- { [1] = newest, [N] = oldest }
+
+---------------------------------------------------------------------------
+-- Deep copy utility for saving segments to history
+---------------------------------------------------------------------------
+
+local function DeepCopy(t)
+    if type(t) ~= "table" then return t end
+    local copy = {}
+    for k, v in pairs(t) do
+        copy[k] = DeepCopy(v)
+    end
+    return copy
+end
 
 local function NewPlayerEntry()
     return {
@@ -131,6 +145,17 @@ end
 ---------------------------------------------------------------------------
 
 function DS:GetDuration(segment)
+    -- History segment: return stored duration
+    if type(segment) == "number" then
+        local entry = self.history[segment]
+        if entry then
+            local d = entry.duration
+            if d < 1 then d = 1 end
+            return d
+        end
+        return 1
+    end
+
     local seg = self.current
     if segment == "overall" then seg = self.overall end
 
@@ -164,7 +189,13 @@ end
 
 function DS:GetSorted(viewType, segment)
     local seg = self.current
-    if segment == "overall" then seg = self.overall end
+    if segment == "overall" then
+        seg = self.overall
+    elseif type(segment) == "number" then
+        local entry = self.history[segment]
+        if not entry then return {}, 1, 0 end
+        seg = entry.segment
+    end
 
     local duration = self:GetDuration(segment)
 
@@ -211,6 +242,59 @@ function DS:GetSorted(viewType, segment)
 end
 
 ---------------------------------------------------------------------------
+-- Save current segment to history (called before ResetCurrent)
+---------------------------------------------------------------------------
+
+function DS:SaveCurrentToHistory(duration)
+    -- Skip empty segments (no player activity)
+    local hasData = false
+    for name, data in pairs(self.current.players) do
+        if string.sub(name, 1, 2) ~= "0x" and (data.damage_total > 0 or data.heal_total > 0) then
+            hasData = true
+            break
+        end
+    end
+    if not hasData then return end
+
+    local dur = duration or 1
+    if dur < 1 then dur = 1 end
+
+    local label = date("%H:%M") .. " (" .. string.format("%.0f", dur) .. "s)"
+
+    -- Insert at position 1 (newest first)
+    local entry = {
+        segment = DeepCopy(self.current),
+        duration = dur,
+        startTime = self.current.startTime,
+        label = label,
+    }
+    table.insert(self.history, 1, entry)
+
+    -- Trim to limit
+    local limit = P.settings.historyLimit or 10
+    while table.getn(self.history) > limit do
+        table.remove(self.history)
+    end
+
+    P.Debug("History saved: " .. label .. " (" .. table.getn(self.history) .. "/" .. limit .. ")")
+end
+
+function DS:GetHistoryCount()
+    return table.getn(self.history)
+end
+
+function DS:GetHistoryLabel(index)
+    local entry = self.history[index]
+    if entry then return entry.label end
+    return nil
+end
+
+function DS:ClearHistory()
+    self.history = {}
+    P.Print("Fight history cleared.")
+end
+
+---------------------------------------------------------------------------
 -- Reset current segment only (called on combat end)
 ---------------------------------------------------------------------------
 
@@ -225,6 +309,7 @@ end
 function DS:ResetAll()
     self.current = NewSegment()
     self.overall = NewSegment()
+    self.history = {}
     if P.combatState then
         P.combatState:Reset()
     end
