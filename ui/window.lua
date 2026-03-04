@@ -425,22 +425,42 @@ end
 -- Update window title text
 ---------------------------------------------------------------------------
 
-local SEGMENT_INDICATORS = {
-    current = "|cff00ccff[C]|r",
-    overall = "|cffffff00[O]|r",
+local SEGMENT_TEXTS = {
+    current = "[C]",
+    overall = "[O]",
+}
+local SEGMENT_COLORS = {
+    current = { r = 0, g = 0.8, b = 1 },
+    overall = { r = 1, g = 1, b = 0 },
 }
 
 function P.UpdateWindowTitle(frame)
     local pc = frame.pc
     if not pc then return end
     local viewLabel = VIEW_LABELS[pc.viewType] or pc.viewType
-    local segInd = SEGMENT_INDICATORS[pc.segment] or pc.segment
     local duration = 0
     if P.dataStore then
         duration = P.dataStore:GetDuration(pc.segment)
     end
     local durText = P.FormatDuration(duration)
-    frame.titleText:SetText(segInd .. " " .. viewLabel .. " " .. durText)
+
+    -- Segment button text + color
+    local segText = SEGMENT_TEXTS[pc.segment] or "[?]"
+    frame.segBtn.label:SetText(segText)
+    local sc = SEGMENT_COLORS[pc.segment]
+    if sc then
+        frame.segBtn.label:SetTextColor(sc.r, sc.g, sc.b)
+    end
+    local segW = frame.segBtn.label:GetStringWidth()
+    frame.segBtn:SetWidth((segW and segW > 0) and (segW + 4) or 24)
+
+    -- View label text
+    frame.viewBtn.label:SetText(viewLabel)
+    local viewW = frame.viewBtn.label:GetStringWidth()
+    frame.viewBtn:SetWidth((viewW and viewW > 0) and (viewW + 4) or 50)
+
+    -- Duration text
+    frame.durText:SetText(durText)
 end
 
 ---------------------------------------------------------------------------
@@ -738,12 +758,93 @@ function P.CreateWindow(viewType, segment)
         end)
     menuBtn:SetPoint("RIGHT", annBtn, "LEFT", -2, 0)
 
-    -- Title text
-    f.titleText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    f.titleText:SetPoint("LEFT", f.titleBG, "LEFT", 4, 0)
-    f.titleText:SetPoint("RIGHT", menuBtn, "LEFT", -4, 0)
-    f.titleText:SetTextColor(0, 0.8, 1)
-    f.titleText:SetJustifyH("LEFT")
+    -- Segment indicator [O]/[C] — click to toggle
+    local segBtn = CreateFrame("Button", nil, f)
+    segBtn:SetHeight(20)
+    segBtn:SetWidth(24)
+    segBtn:SetPoint("LEFT", f.titleBG, "LEFT", 2, 0)
+    local segLabel = segBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    segLabel:SetPoint("CENTER", segBtn, "CENTER", 0, 0)
+    segLabel:SetShadowColor(0, 0, 0, 1)
+    segLabel:SetShadowOffset(1, -1)
+    segBtn.label = segLabel
+    segBtn:SetScript("OnClick", function()
+        local pc = this:GetParent().pc
+        if pc.segment == "current" then
+            pc.segment = "overall"
+        else
+            pc.segment = "current"
+        end
+        pc.scrollOffset = 0
+        P.UpdateWindowTitle(this:GetParent())
+        P.UpdateParsecWindow(this:GetParent())
+        P.SaveWindowState()
+    end)
+    segBtn:SetScript("OnEnter", function()
+        this.label:SetTextColor(1, 1, 1)
+        GameTooltip:SetOwner(this, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("[O]verall / [C]urrent", 1, 1, 1)
+        GameTooltip:AddLine("Click to toggle", 0.7, 0.7, 0.7)
+        GameTooltip:Show()
+    end)
+    segBtn:SetScript("OnLeave", function()
+        P.UpdateWindowTitle(this:GetParent())
+        GameTooltip:Hide()
+    end)
+    f.segBtn = segBtn
+
+    -- View label (Damage/Healing/...) — click to cycle metric
+    local viewBtn = CreateFrame("Button", nil, f)
+    viewBtn:SetHeight(20)
+    viewBtn:SetWidth(50)
+    viewBtn:SetPoint("LEFT", segBtn, "RIGHT", 0, 0)
+    local viewLabel = viewBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    viewLabel:SetPoint("LEFT", viewBtn, "LEFT", 0, 0)
+    viewLabel:SetJustifyH("LEFT")
+    viewLabel:SetTextColor(0, 0.8, 1)
+    viewLabel:SetShadowColor(0, 0, 0, 1)
+    viewLabel:SetShadowOffset(1, -1)
+    viewBtn.label = viewLabel
+    viewBtn:SetScript("OnClick", function()
+        if not (P.settings and P.settings.clickToCycleView) then return end
+        local pc = this:GetParent().pc
+        local currentIdx = 1
+        for i = 1, table.getn(VIEW_CYCLE) do
+            if VIEW_CYCLE[i] == pc.viewType then
+                currentIdx = i
+                break
+            end
+        end
+        local nextIdx = currentIdx + 1
+        if nextIdx > table.getn(VIEW_CYCLE) then nextIdx = 1 end
+        pc.viewType = VIEW_CYCLE[nextIdx]
+        pc.scrollOffset = 0
+        P.UpdateWindowTitle(this:GetParent())
+        P.UpdateParsecWindow(this:GetParent())
+        P.SaveWindowState()
+    end)
+    viewBtn:SetScript("OnEnter", function()
+        if P.settings and P.settings.clickToCycleView then
+            this.label:SetTextColor(1, 1, 1)
+            GameTooltip:SetOwner(this, "ANCHOR_BOTTOM")
+            GameTooltip:AddLine("Click to cycle metric", 1, 1, 1)
+            GameTooltip:Show()
+        end
+    end)
+    viewBtn:SetScript("OnLeave", function()
+        this.label:SetTextColor(0, 0.8, 1)
+        GameTooltip:Hide()
+    end)
+    f.viewBtn = viewBtn
+
+    -- Duration text
+    f.durText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    f.durText:SetPoint("LEFT", viewBtn, "RIGHT", 2, 0)
+    f.durText:SetPoint("RIGHT", menuBtn, "LEFT", -4, 0)
+    f.durText:SetTextColor(0, 0.8, 1)
+    f.durText:SetJustifyH("LEFT")
+    f.durText:SetShadowColor(0, 0, 0, 1)
+    f.durText:SetShadowOffset(1, -1)
 
     -- Bar container
     f.container = CreateFrame("Frame", nil, f)

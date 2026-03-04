@@ -348,7 +348,7 @@ function F:CreateTexturePicker(parent, label, settingKey, yOffset)
     local previewBar = CreateFrame("StatusBar", nil, row)
     previewBar:SetHeight(16)
     previewBar:SetPoint("LEFT", nextBtn, "RIGHT", 8, 0)
-    previewBar:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+    previewBar:SetPoint("RIGHT", row, "RIGHT", -80, 0)
     previewBar:SetMinMaxValues(0, 1)
     previewBar:SetValue(1)
 
@@ -769,6 +769,10 @@ function F:BuildWindowPanel(panel, idx)
     local cb2, y2 = self:CreateCheckbox(panel, "Lock window positions", "lockWindows", y)
     ctrls.lockWindows = cb2.checkbox
     y = y2
+
+    local cb_cycle, y_cycle = self:CreateCheckbox(panel, "Click title to cycle metric", "clickToCycleView", y)
+    ctrls.clickToCycleView = cb_cycle.checkbox
+    y = y_cycle
 
     local sl1, y3 = self:CreateSlider(panel, "Background Opacity:", "bgOpacity", 0.3, 1.0, 0.05, y, true)
     ctrls.bgOpacity = sl1

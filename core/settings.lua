@@ -25,6 +25,7 @@ P.DEFAULTS = {
     fontOutline  = false,
     pastelColors = false,
     showBackdrop = true,
+    clickToCycleView = true,
 }
 
 P.settings = {}
