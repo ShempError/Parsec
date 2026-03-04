@@ -209,4 +209,9 @@ function P.ApplySettings()
     if P.UpdateAllWindows then
         P.UpdateAllWindows()
     end
+
+    -- Refresh options texture preview (if visible)
+    if P._refreshTexturePreview then
+        P._refreshTexturePreview()
+    end
 end

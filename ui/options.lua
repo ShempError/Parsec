@@ -350,25 +350,66 @@ function F:CreateTexturePicker(parent, label, settingKey, yOffset)
     previewBar:SetPoint("LEFT", nextBtn, "RIGHT", 8, 0)
     previewBar:SetPoint("RIGHT", row, "RIGHT", 0, 0)
     previewBar:SetMinMaxValues(0, 1)
-    previewBar:SetValue(0.7)
-    previewBar:SetStatusBarColor(F.CYAN[1], F.CYAN[2], F.CYAN[3])
+    previewBar:SetValue(1)
 
     local previewBG = previewBar:CreateTexture(nil, "BACKGROUND")
     previewBG:SetAllPoints(previewBar)
-    previewBG:SetTexture(0.1, 0.1, 0.1, 1)
+    previewBG:SetTexture(0.1, 0.1, 0.1, 0.6)
+
+    -- Preview bar FontStrings (mimics real bar layout)
+    local pvName = previewBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    pvName:SetPoint("LEFT", previewBar, "LEFT", 4, 0)
+    pvName:SetJustifyH("LEFT")
+
+    local pvValue = previewBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    pvValue:SetPoint("RIGHT", previewBar, "RIGHT", -4, 0)
+    pvValue:SetJustifyH("RIGHT")
+    pvValue:SetTextColor(1, 0.82, 0)
+    pvValue:SetText("1,234")
+
+    pvName:SetPoint("RIGHT", pvValue, "LEFT", -4, 0)
 
     -- Capture for closure
     local capturedKey = settingKey
     local capturedName = nameText
     local capturedPreview = previewBar
+    local capturedPvName = pvName
+    local capturedPvValue = pvValue
 
     local function UpdateDisplay()
-        local idx = P.settings[capturedKey] or 1
+        local s = P.settings
+        local idx = s[capturedKey] or 1
         local texPath = P.BAR_TEXTURES[idx] or P.BAR_TEXTURES[1]
         local texName = P.BAR_TEXTURE_NAMES[idx] or "?"
         capturedName:SetText(texName)
         capturedPreview:SetStatusBarTexture(texPath)
+
+        -- Class color from current player
+        local playerName = UnitName("player") or "Player"
+        local cc = P.GetClassColor(playerName)
+        if cc then
+            capturedPreview:SetStatusBarColor(cc.r, cc.g, cc.b)
+        end
+        capturedPvName:SetText(playerName)
+
+        -- Apply font shadow + outline to preview FontStrings
+        local shadowA = s.fontShadow and 1 or 0
+        local shadowOff = s.fontShadow and 1 or 0
+        local outlineFlag = s.fontOutline and "OUTLINE" or ""
+        local fontStrings = { capturedPvName, capturedPvValue }
+        for k = 1, 2 do
+            local fs = fontStrings[k]
+            local fontPath, fontSize = fs:GetFont()
+            if fontPath then
+                fs:SetFont(fontPath, fontSize, outlineFlag)
+            end
+            fs:SetShadowColor(0, 0, 0, shadowA)
+            fs:SetShadowOffset(shadowOff, -shadowOff)
+        end
     end
+
+    -- Register callback so ApplySettings can refresh preview
+    P._refreshTexturePreview = UpdateDisplay
 
     prev:SetScript("OnClick", function()
         local idx = P.settings[capturedKey] or 1
