@@ -455,63 +455,63 @@ function genIconAbout() {
 }
 
 // =====================================================================
-// 12x12 TITLE BAR ICONS (for window buttons)
+// 16x16 TITLE BAR ICONS (for window buttons)
 // =====================================================================
 
 // Settings gear (small)
 function genIconSettings() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
-        const cx = 5.5, cy = 5.5;
+        const cx = 7.5, cy = 7.5;
         for (let i = 0; i < 6; i++) {
             const a = i * Math.PI / 3;
-            const x1 = cx + 3.5*Math.cos(a), y1 = cy + 3.5*Math.sin(a);
-            const x2 = cx + 5*Math.cos(a), y2 = cy + 5*Math.sin(a);
+            const x1 = cx + 4.7*Math.cos(a), y1 = cy + 4.7*Math.sin(a);
+            const x2 = cx + 6.7*Math.cos(a), y2 = cy + 6.7*Math.sin(a);
             drawLine(Math.round(x1), Math.round(y1), Math.round(x2), Math.round(y2), set, C[0], C[1], C[2], 220);
         }
-        drawCircle(cx, cy, 3.5, set, C[0], C[1], C[2], 200);
-        drawCircle(cx, cy, 1.5, set, CW[0], CW[1], CW[2], 230);
+        drawCircle(cx, cy, 4.7, set, C[0], C[1], C[2], 200);
+        drawCircle(cx, cy, 2, set, CW[0], CW[1], CW[2], 230);
     });
     writeTGA(path.join(TEXTURES_DIR, 'icon-settings.tga'), s, s, px);
 }
 
 // Reset - circular arrow
 function genIconReset() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
-        const cx = 5.5, cy = 5.5;
+        const cx = 7.5, cy = 7.5;
         // Arc (270 degrees)
         for (let angle = 30; angle <= 330; angle += 3) {
             const rad = angle * Math.PI / 180;
-            const x = Math.round(cx + 4 * Math.cos(rad));
-            const y = Math.round(cy + 4 * Math.sin(rad));
+            const x = Math.round(cx + 5.3 * Math.cos(rad));
+            const y = Math.round(cy + 5.3 * Math.sin(rad));
             set(x, y, C[0], C[1], C[2], 220);
         }
         // Arrow head at end of arc
-        drawLine(8, 1, 10, 3, set, CW[0], CW[1], CW[2], 255);
-        drawLine(10, 1, 10, 3, set, CW[0], CW[1], CW[2], 255);
-        set(9, 2, CW[0], CW[1], CW[2], 255);
+        drawLine(11, 1, 13, 4, set, CW[0], CW[1], CW[2], 255);
+        drawLine(13, 1, 13, 4, set, CW[0], CW[1], CW[2], 255);
+        set(12, 3, CW[0], CW[1], CW[2], 255);
     });
     writeTGA(path.join(TEXTURES_DIR, 'icon-reset.tga'), s, s, px);
 }
 
 // Announce - megaphone
 function genIconAnnounce() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
         // Megaphone body (trapezoid)
-        for (let x = 1; x <= 7; x++) {
-            const spread = (x - 1) * 0.6;
-            const top = Math.round(4 - spread);
-            const bot = Math.round(7 + spread);
+        for (let x = 2; x <= 9; x++) {
+            const spread = (x - 2) * 0.6;
+            const top = Math.round(5 - spread);
+            const bot = Math.round(10 + spread);
             for (let y = top; y <= bot; y++) set(x, y, C[0], C[1], C[2], 210);
         }
         // Sound waves
         for (let i = 0; i < 3; i++) {
-            const cx = 8 + i;
-            for (let y = 3; y <= 8; y++) {
-                const dy = y - 5.5;
-                if (Math.abs(dy) < 2 + i * 0.8) set(cx, y, CW[0], CW[1], CW[2], 180 - i * 40);
+            const cx = 10 + i;
+            for (let y = 4; y <= 11; y++) {
+                const dy = y - 7.5;
+                if (Math.abs(dy) < 2.7 + i * 1) set(cx, y, CW[0], CW[1], CW[2], 180 - i * 40);
             }
         }
     });
@@ -520,87 +520,86 @@ function genIconAnnounce() {
 
 // View-Damage - sword
 function genIconViewDamage() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
         // Blade (diagonal)
-        drawLine(2, 9, 9, 2, set, CW[0], CW[1], CW[2], 255);
-        drawLine(3, 9, 9, 3, set, C[0], C[1], C[2], 200);
+        drawLine(3, 12, 12, 3, set, CW[0], CW[1], CW[2], 255);
+        drawLine(4, 12, 12, 4, set, C[0], C[1], C[2], 200);
         // Hilt
-        drawLine(1, 8, 4, 11, set, C[0], C[1], C[2], 220);
+        drawLine(1, 11, 5, 15, set, C[0], C[1], C[2], 220);
         // Cross-guard
-        drawLine(4, 6, 6, 8, set, C[0], C[1], C[2], 200);
+        drawLine(5, 8, 8, 11, set, C[0], C[1], C[2], 200);
         // Tip glow
-        set(9, 2, 255, 255, 255, 255);
-        set(10, 1, CW[0], CW[1], CW[2], 180);
+        set(12, 3, 255, 255, 255, 255);
+        set(13, 2, CW[0], CW[1], CW[2], 180);
     });
     writeTGA(path.join(TEXTURES_DIR, 'icon-view-damage.tga'), s, s, px);
 }
 
 // View-Healing - plus/cross
 function genIconViewHealing() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
         // Green cross
-        fillRect(4, 1, 7, 10, set, 80, 220, 100, 240);
-        fillRect(1, 4, 10, 7, set, 80, 220, 100, 240);
+        fillRect(5, 2, 10, 13, set, 80, 220, 100, 240);
+        fillRect(2, 5, 13, 10, set, 80, 220, 100, 240);
         // Brighter center
-        fillRect(4, 4, 7, 7, set, 120, 255, 140, 255);
+        fillRect(5, 5, 10, 10, set, 120, 255, 140, 255);
     });
     writeTGA(path.join(TEXTURES_DIR, 'icon-view-healing.tga'), s, s, px);
 }
 
 // View-DPS - speedometer/gauge
 function genIconViewDps() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
-        const cx = 5.5, cy = 6;
+        const cx = 7.5, cy = 8;
         // Half-circle arc (gauge)
         for (let angle = 180; angle <= 360; angle += 3) {
             const rad = angle * Math.PI / 180;
-            const x = Math.round(cx + 5 * Math.cos(rad));
-            const y = Math.round(cy + 5 * Math.sin(rad));
+            const x = Math.round(cx + 6.5 * Math.cos(rad));
+            const y = Math.round(cy + 6.5 * Math.sin(rad));
             set(x, y, C[0], C[1], C[2], 210);
         }
         // Needle pointing upper-right
-        drawLine(5, 6, 9, 2, set, CW[0], CW[1], CW[2], 255);
+        drawLine(7, 8, 12, 3, set, CW[0], CW[1], CW[2], 255);
         // Tick marks
         for (let angle = 200; angle <= 340; angle += 35) {
             const rad = angle * Math.PI / 180;
-            set(Math.round(cx + 4.5*Math.cos(rad)), Math.round(cy + 4.5*Math.sin(rad)), C[0], C[1], C[2], 180);
+            set(Math.round(cx + 6*Math.cos(rad)), Math.round(cy + 6*Math.sin(rad)), C[0], C[1], C[2], 180);
         }
         // Base
-        fillRect(1, 9, 10, 10, set, C[0]*0.4, C[1]*0.4, C[2]*0.4, 160);
+        fillRect(1, 12, 14, 13, set, C[0]*0.4, C[1]*0.4, C[2]*0.4, 160);
     });
     writeTGA(path.join(TEXTURES_DIR, 'icon-view-dps.tga'), s, s, px);
 }
 
 // View-HPS - pulse/heartbeat line
 function genIconViewHps() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
         // Flat line with pulse in the middle
-        const pts = [[0,6],[3,6],[4,4],[5,1],[6,9],[7,3],[8,6],[11,6]];
+        const pts = [[0,8],[4,8],[5,5],[7,1],[8,12],[9,4],[11,8],[15,8]];
         for (let i = 0; i < pts.length - 1; i++) {
             drawLine(pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1], set, 80, 220, 100, 240);
         }
         // Brighter peak
-        set(5, 1, 120, 255, 140, 255);
-        set(5, 2, 100, 240, 120, 240);
+        set(7, 1, 120, 255, 140, 255);
+        set(7, 2, 100, 240, 120, 240);
     });
     writeTGA(path.join(TEXTURES_DIR, 'icon-view-hps.tga'), s, s, px);
 }
 
 // Segment-Current - play triangle
 function genIconSegmentCurrent() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
         // Play triangle
         for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-            // Triangle: x >= 2, x <= 2 + (y distance from center mapped)
-            const cy = 5.5;
-            const maxX = 2 + (1 - Math.abs(y - cy) / cy) * 8;
-            if (x >= 2 && x <= maxX && Math.abs(y - cy) < cy) {
-                const t = (x - 2) / 8;
+            const cy = 7.5;
+            const maxX = 3 + (1 - Math.abs(y - cy) / cy) * 10;
+            if (x >= 3 && x <= maxX && Math.abs(y - cy) < cy) {
+                const t = (x - 3) / 10;
                 set(x, y, C[0]+(CW[0]-C[0])*t, C[1]+(CW[1]-C[1])*t, C[2]+(CW[2]-C[2])*t, 220);
             }
         }
@@ -610,12 +609,12 @@ function genIconSegmentCurrent() {
 
 // Segment-Overall - stacked horizontal bars
 function genIconSegmentOverall() {
-    const s = 12;
+    const s = 16;
     const px = renderIcon(s, s, (w, h, set) => {
         // Three horizontal bars of decreasing width
-        fillRect(1, 1, 10, 3, set, CW[0], CW[1], CW[2], 240);
-        fillRect(1, 5, 8, 7, set, C[0], C[1], C[2], 210);
-        fillRect(1, 9, 5, 11, set, C[0]*0.7, C[1]*0.7, C[2]*0.7, 180);
+        fillRect(2, 1, 13, 4, set, CW[0], CW[1], CW[2], 240);
+        fillRect(2, 6, 11, 9, set, C[0], C[1], C[2], 210);
+        fillRect(2, 11, 7, 14, set, C[0]*0.7, C[1]*0.7, C[2]*0.7, 180);
     });
     writeTGA(path.join(TEXTURES_DIR, 'icon-segment-overall.tga'), s, s, px);
 }
@@ -714,7 +713,7 @@ genIconWindows();
 genIconAutomation();
 genIconAbout();
 
-console.log('--- Title Bar Icons (12x12) ---');
+console.log('--- Title Bar Icons (16x16) ---');
 genIconSettings();
 genIconReset();
 genIconAnnounce();
