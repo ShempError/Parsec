@@ -1,10 +1,17 @@
 -- Parsec: Shared utilities
 -- Class colors, formatting, helpers
 
+---------------------------------------------------------------------------
+-- Nampower v3.0.0 compat: UnitGUID was renamed to GetUnitGUID
+---------------------------------------------------------------------------
+if not UnitGUID and GetUnitGUID then
+    UnitGUID = GetUnitGUID
+end
+
 Parsec = {}
 local P = Parsec
 
-P.VERSION = "0.3.0"
+P.VERSION = "0.3.1"
 P._loadedFiles = { "utils" }
 
 -- Class colors (same as RAID_CLASS_COLORS but guaranteed available)
