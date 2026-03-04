@@ -688,8 +688,8 @@ function F:BuildBarsPanel(panel, idx)
 
     y = y + 2
 
-    local sl3, y4 = self:CreateSlider(panel, "Font Shadow:", "fontShadow", 0, 3, 1, y, false)
-    ctrls.fontShadow = sl3
+    local cb1, y4 = self:CreateCheckbox(panel, "Font Shadow", "fontShadow", y)
+    ctrls.fontShadow = cb1.checkbox
     y = y4
 
     y = y + 4

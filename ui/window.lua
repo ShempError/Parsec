@@ -52,8 +52,8 @@ local function CreateBar(parent)
     bar.bg:SetAllPoints(bar)
     bar.bg:SetVertexColor(0.1, 0.1, 0.1, 0.6)
 
-    local shadowOff = s.fontShadow or 1
-    local shadowA = (shadowOff > 0) and 1 or 0
+    local shadowA = (s.fontShadow ~= false) and 1 or 0
+    local shadowOff = (s.fontShadow ~= false) and 1 or 0
 
     bar.rank = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.rank:SetPoint("LEFT", bar, "LEFT", 2, 0)
