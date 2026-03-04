@@ -1,5 +1,5 @@
 -- Parsec: Combat State Machine
--- Tracks combat start/end, encounter duration, segment management
+-- Tracks combat start/end, accumulated duration (no auto-reset)
 
 local P = Parsec
 if not P then return end
@@ -10,28 +10,21 @@ P.combatState = {}
 local CS = P.combatState
 
 CS.state = "IDLE"           -- IDLE, COMBAT, POST_COMBAT
-CS.combatStart = 0          -- GetTime() of combat start
-CS.combatEnd = 0            -- GetTime() of combat end
-CS.combatDuration = 0       -- Seconds in combat (current segment)
-CS.overallDuration = 0      -- Seconds in combat (overall)
-CS.postCombatTimeout = 3    -- Seconds to wait after REGEN_ENABLED before going IDLE
+CS.combatStart = 0
+CS.combatEnd = 0
+CS.combatDuration = 0       -- Current fight duration
+CS.overallDuration = 0      -- Accumulated combat time (across all fights)
+CS.postCombatTimeout = 3
 CS.postCombatTimer = 0
-CS.segmentName = "Current"
 
--- Timer frame for post-combat timeout and duration tracking
 CS.timerFrame = CreateFrame("Frame", "ParsecCombatTimer")
 CS.timerFrame:Hide()
 
 function CS:OnCombatStart()
-    if self.state == "IDLE" then
-        -- New combat segment
-        P.Debug("Combat START -- new segment")
-        if P.dataStore then
-            P.dataStore:NewSegment()
-        end
-    elseif self.state == "POST_COMBAT" then
-        -- Re-entered combat before timeout, continue same segment
+    if self.state == "POST_COMBAT" then
         P.Debug("Combat RESUME (was post-combat)")
+    else
+        P.Debug("Combat START")
     end
 
     self.state = "COMBAT"
@@ -43,42 +36,39 @@ end
 
 function CS:OnCombatEnd()
     if self.state ~= "COMBAT" then return end
-    P.Debug("Combat END -- entering post-combat (" .. self.postCombatTimeout .. "s timeout)")
+    P.Debug("Combat END -- post-combat (" .. self.postCombatTimeout .. "s)")
     self.state = "POST_COMBAT"
     self.postCombatTimer = self.postCombatTimeout
     self.combatEnd = GetTime()
 end
 
 function CS:FinalizeSegment()
-    P.Debug("Segment FINALIZED -- duration: " .. string.format("%.1f", self.combatDuration) .. "s")
+    P.Debug("Segment done -- total: " .. string.format("%.1f", self.overallDuration) .. "s")
     self.state = "IDLE"
     self.timerFrame:Hide()
-
-    -- Finalize segment in data store
-    if P.dataStore then
-        P.dataStore:FinalizeSegment(self.combatDuration)
-    end
-
     self.combatStart = 0
     self.combatEnd = 0
     self.combatDuration = 0
 end
 
 function CS:GetDuration()
-    if self.state == "COMBAT" then
-        return GetTime() - self.combatStart
-    elseif self.state == "POST_COMBAT" then
-        return self.combatEnd - self.combatStart
-    end
-    return self.combatDuration
+    return self.overallDuration
 end
 
 function CS:InCombat()
     return self.state == "COMBAT" or self.state == "POST_COMBAT"
 end
 
+function CS:Reset()
+    self.state = "IDLE"
+    self.timerFrame:Hide()
+    self.combatStart = 0
+    self.combatEnd = 0
+    self.combatDuration = 0
+    self.overallDuration = 0
+end
+
 -- OnUpdate: track duration + post-combat timeout
-local elapsed_acc = 0
 CS.timerFrame:SetScript("OnUpdate", function()
     local dt = arg1 or 0.016
     local cs = P.combatState

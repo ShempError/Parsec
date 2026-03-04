@@ -50,7 +50,40 @@ end
 -- "MISS"    = { time, source, target, sourceGUID, targetGUID, spellID, spellName, missType, amount }
 -- "DEATH"   = { time, name, guid }
 -- "BUFF"    = { time, target, spellID, spellName, gained }
+-- "DRAIN"   = { time, source, target, spellName, amount, resource }
 -- "CAST"    = { time, source, target, sourceGUID, targetGUID, spellID, spellName, castType, duration }
+
+---------------------------------------------------------------------------
+-- Missed Event Logger
+-- Stores CHAT_MSG events we receive but cannot parse (like DPSMate's
+-- "Event not parsed yet"). Helps discover new patterns to support.
+---------------------------------------------------------------------------
+
+P.missedEvents = {}
+local MISSED_MAX = 100
+-- Dedup: don't log the same pattern over and over
+local missedSeen = {}  -- { [eventName..msg] = true }
+
+local function LogMissedEvent(eventName, msg)
+    if not msg then return end
+    -- Dedup key: event + first 60 chars of message pattern (strip numbers for grouping)
+    local patternKey = eventName .. ":" .. string.gsub(string.sub(msg, 1, 60), "%d+", "#")
+    if missedSeen[patternKey] then return end
+    missedSeen[patternKey] = true
+
+    local entry = {
+        time = date("%H:%M:%S"),
+        event = eventName,
+        msg = msg,
+    }
+    table.insert(P.missedEvents, entry)
+    if table.getn(P.missedEvents) > MISSED_MAX then
+        table.remove(P.missedEvents, 1)
+    end
+
+    -- Always print to chat so user can see it immediately
+    P.Print("|cffff8800[MISSED]|r " .. msg)
+end
 
 ---------------------------------------------------------------------------
 -- GUID -> Name Resolution
@@ -67,8 +100,18 @@ function P.ResolveName(guid)
 
     -- SuperWoW: UnitName accepts GUIDs directly
     local name = UnitName(guid)
-    if name then
+    -- WoW returns "Unknown" for unresolved units — don't cache that
+    if name and name ~= "Unknown" and name ~= "Unbekannt" then
         P.guidNames[guid] = name
+
+        -- Also grab class while we have the GUID (SuperWoW supports UnitClass(guid))
+        if P.dataStore and not P.dataStore.classes[name] then
+            local _, class = UnitClass(guid)
+            if class then
+                P.dataStore.classes[name] = class
+            end
+        end
+
         return name
     end
 
@@ -93,12 +136,218 @@ local MISS_TYPES = {
     [11] = "REFLECT",
 }
 
--- Check if hitInfo bitmask has critical hit flag (HITINFO_CRITICALHIT = 0x2)
+-- Check if hitInfo bitmask has critical hit flag (HITINFO_CRITICALHIT = 0x200)
+-- Bitmask values: 0x2=AFFECTS_VICTIM, 0x10=MISS, 0x200=CRITICALHIT
 local function IsCritHit(hitInfo)
     if not hitInfo then return false end
     hitInfo = tonumber(hitInfo) or 0
-    -- Check bit 1 (0x2) in Lua 5.0 without bit lib
-    return math.mod(math.floor(hitInfo / 2), 2) == 1
+    -- Check bit 9 (0x200 = 512) in Lua 5.0 without bit lib
+    return math.mod(math.floor(hitInfo / 512), 2) == 1
+end
+
+---------------------------------------------------------------------------
+-- Pet Owner Mapping (petGUID -> ownerName)
+---------------------------------------------------------------------------
+
+P.petOwners = {}
+P.totemOwners = {}  -- { [totemCreatureName] = ownerName } -- tracked via SPELL_GO
+
+function P.ScanGroupPets()
+    -- Don't wipe! Merge new entries to keep previously discovered pet mappings
+    if not UnitGUID then return end
+
+    -- Player's own pet
+    local petGUID = UnitGUID("pet")
+    if petGUID then
+        local ownerName = UnitName("player")
+        if ownerName then
+            P.petOwners[petGUID] = ownerName
+        end
+    end
+
+    local numRaid = GetNumRaidMembers()
+    if numRaid > 0 then
+        for i = 1, numRaid do
+            local pGUID = UnitGUID("raidpet" .. i)
+            if pGUID then
+                local oName = UnitName("raid" .. i)
+                if oName then
+                    P.petOwners[pGUID] = oName
+                end
+            end
+        end
+    else
+        local numParty = GetNumPartyMembers()
+        for i = 1, numParty do
+            local pGUID = UnitGUID("partypet" .. i)
+            if pGUID then
+                local oName = UnitName("party" .. i)
+                if oName then
+                    P.petOwners[pGUID] = oName
+                end
+            end
+        end
+    end
+end
+
+-- Check if a GUID belongs to a pet/totem and return ownerName or nil
+-- Uses multiple fallback methods for reliable attribution in raids
+function P.GetPetOwnerByGUID(guid)
+    if not guid then return nil end
+
+    -- 1. Check cache first
+    local cached = P.petOwners[guid]
+    if cached then return cached end
+
+    -- 2. Get creature name via SuperWoW (server-side, works at any range)
+    local creatureName = UnitName(guid)
+    if not creatureName or creatureName == "Unknown" or creatureName == "Unbekannt" then
+        return nil
+    end
+
+    -- If it's already a group member name, it's a player not a pet
+    if P.IsGroupMember(creatureName) then return nil end
+
+    -- 3. Check totem owner cache (populated by SPELL_GO tracking)
+    -- SpellInfo returns "Fire Nova Totem" but creature may be "Fire Nova Totem V"
+    -- So we do substring match: check if any stored totem spell name is found in creatureName
+    local totemOwner = P.totemOwners[creatureName]
+    if not totemOwner then
+        -- Fuzzy match: creature name may include rank that SpellInfo omits
+        for spellName, owner in pairs(P.totemOwners) do
+            if string.find(creatureName, spellName, 1, true) then
+                totemOwner = owner
+                break
+            end
+        end
+    end
+    if totemOwner then
+        P.petOwners[guid] = totemOwner
+        P.Debug("Totem->Owner: " .. creatureName .. " -> " .. totemOwner)
+        return totemOwner
+    end
+
+    -- 4. Direct raidpet/partypet GUID scan
+    if UnitGUID then
+        local petGUID = UnitGUID("pet")
+        if petGUID and petGUID == guid then
+            local ownerName = UnitName("player")
+            if ownerName then
+                P.petOwners[guid] = ownerName
+                return ownerName
+            end
+        end
+
+        local numRaid = GetNumRaidMembers()
+        if numRaid > 0 then
+            for i = 1, numRaid do
+                local pGUID = UnitGUID("raidpet" .. i)
+                if pGUID and pGUID == guid then
+                    local oName = UnitName("raid" .. i)
+                    if oName and oName ~= "Unknown" and oName ~= "Unbekannt" then
+                        P.petOwners[guid] = oName
+                        P.Debug("Pet GUID match: " .. creatureName .. " -> " .. oName)
+                        return oName
+                    end
+                end
+            end
+        else
+            for i = 1, GetNumPartyMembers() do
+                local pGUID = UnitGUID("partypet" .. i)
+                if pGUID and pGUID == guid then
+                    local oName = UnitName("party" .. i)
+                    if oName and oName ~= "Unknown" and oName ~= "Unbekannt" then
+                        P.petOwners[guid] = oName
+                        return oName
+                    end
+                end
+            end
+        end
+
+        -- 5. Raidpet name scan (fallback when GUID match fails)
+        if numRaid > 0 then
+            for i = 1, numRaid do
+                local rpName = UnitName("raidpet" .. i)
+                if rpName and rpName == creatureName then
+                    local oName = UnitName("raid" .. i)
+                    if oName and oName ~= "Unknown" and oName ~= "Unbekannt" then
+                        P.petOwners[guid] = oName
+                        P.Debug("Pet name match: " .. creatureName .. " -> " .. oName)
+                        return oName
+                    end
+                end
+            end
+        else
+            for i = 1, GetNumPartyMembers() do
+                local ppName = UnitName("partypet" .. i)
+                if ppName and ppName == creatureName then
+                    local oName = UnitName("party" .. i)
+                    if oName and oName ~= "Unknown" and oName ~= "Unbekannt" then
+                        P.petOwners[guid] = oName
+                        P.Debug("Pet name match: " .. creatureName .. " -> " .. oName)
+                        return oName
+                    end
+                end
+            end
+        end
+    end
+
+    -- 6. Class-based fallback (when raidpet scan fails due to range)
+    if not P.dataStore then return nil end
+    local lowerName = string.lower(creatureName)
+    local isTotem = string.find(lowerName, "totem")
+
+    if isTotem then
+        -- Totem -> find Shamans in group
+        local shamans = {}
+        for name, class in pairs(P.dataStore.classes) do
+            if class == "SHAMAN" and P.IsGroupMember(name) then
+                table.insert(shamans, name)
+            end
+        end
+        if table.getn(shamans) == 1 then
+            P.petOwners[guid] = shamans[1]
+            P.Debug("Totem->Shaman: " .. creatureName .. " -> " .. shamans[1])
+            return shamans[1]
+        end
+        -- Multiple shamans: can't disambiguate without SPELL_GO data
+    else
+        -- Pet -> check creature type via SuperWoW (accepts GUIDs)
+        local cType = UnitCreatureType and UnitCreatureType(guid)
+        local cFamily = UnitCreatureFamily and UnitCreatureFamily(guid)
+
+        if cType == "Beast" or cType == "Wildtier" or cType == "Bestie" or cFamily then
+            -- Likely a Hunter pet (Beast family)
+            local hunters = {}
+            for name, class in pairs(P.dataStore.classes) do
+                if class == "HUNTER" and P.IsGroupMember(name) then
+                    table.insert(hunters, name)
+                end
+            end
+            if table.getn(hunters) == 1 then
+                P.petOwners[guid] = hunters[1]
+                P.Debug("Pet->Hunter: " .. creatureName .. " -> " .. hunters[1])
+                return hunters[1]
+            end
+        end
+
+        if cType == "Demon" or cType == "Daemon" or cType == "Dämon" then
+            -- Warlock pet
+            local warlocks = {}
+            for name, class in pairs(P.dataStore.classes) do
+                if class == "WARLOCK" and P.IsGroupMember(name) then
+                    table.insert(warlocks, name)
+                end
+            end
+            if table.getn(warlocks) == 1 then
+                P.petOwners[guid] = warlocks[1]
+                P.Debug("Pet->Warlock: " .. creatureName .. " -> " .. warlocks[1])
+                return warlocks[1]
+            end
+        end
+    end
+
+    return nil
 end
 
 ---------------------------------------------------------------------------
@@ -126,6 +375,8 @@ local function OnSpellDamage()
         if name then spellName = name end
     end
 
+    local petOwner = P.GetPetOwnerByGUID(casterGuid)
+
     local data = {
         time = GetTime(),
         type = "DAMAGE",
@@ -138,13 +389,15 @@ local function OnSpellDamage()
         amount = amount,
         school = school,
         crit = crit,
-        isPet = false,
-        petOwner = nil,
+        isPet = (petOwner ~= nil),
+        petOwner = petOwner,
     }
 
-    P.Debug("DMG: " .. source .. " -> " .. target ..
-            " [" .. spellName .. "] " .. amount ..
-            (crit and " CRIT" or ""))
+    -- Only log pet attributions (not every damage event)
+    if petOwner then
+        P.Debug("PET DMG: " .. source .. " -> " .. target ..
+                " [" .. spellName .. "] " .. amount .. " (owner:" .. petOwner .. ")")
+    end
 
     bus:Fire("DAMAGE", data)
 end
@@ -162,6 +415,7 @@ local function OnAutoAttack()
     local source = P.ResolveName(attackerGuid) or attackerGuid or "?"
     local target = P.ResolveName(targetGuid) or targetGuid or "?"
     local crit = IsCritHit(hitInfo)
+    local petOwner = P.GetPetOwnerByGUID(attackerGuid)
 
     local data = {
         time = GetTime(),
@@ -175,12 +429,15 @@ local function OnAutoAttack()
         amount = amount,
         school = 0,
         crit = crit,
-        isPet = false,
-        petOwner = nil,
+        isPet = (petOwner ~= nil),
+        petOwner = petOwner,
     }
 
-    P.Debug("MELEE: " .. source .. " -> " .. target ..
-            " " .. amount .. (crit and " CRIT" or ""))
+    -- Only log pet attributions
+    if petOwner then
+        P.Debug("PET MELEE: " .. source .. " -> " .. target ..
+                " " .. amount .. " (owner:" .. petOwner .. ")")
+    end
 
     bus:Fire("DAMAGE", data)
 end
@@ -232,10 +489,6 @@ local function OnSpellHeal()
         overheal = overheal,
     }
 
-    P.Debug("HEAL: " .. source .. " -> " .. target ..
-            " [" .. spellName .. "] " .. amount ..
-            (overheal > 0 and (" OH:" .. overheal) or ""))
-
     bus:Fire("HEAL", data)
 end
 
@@ -269,9 +522,6 @@ local function OnSpellMiss()
         missType = missType,
         amount = 0,
     }
-
-    P.Debug("MISS: " .. source .. " -> " .. target ..
-            " [" .. spellName .. "] " .. missType)
 
     bus:Fire("MISS", data)
 end
@@ -329,6 +579,149 @@ local function OnUnitCastEvent()
     bus:Fire("CAST", data)
 end
 
+-- SPELL_GO_SELF / SPELL_GO_OTHER — track totem casts for owner attribution
+-- arg1=itemId, arg2=spellId, arg3=casterGuid, arg4=targetGuid, arg5=castFlags
+local function OnSpellGo()
+    local spellId = arg2
+    local casterGuid = arg3
+    if not spellId or not casterGuid then return end
+
+    local casterName = P.ResolveName(casterGuid)
+    if not casterName or not P.IsGroupMember(casterName) then return end
+
+    if SpellInfo then
+        local spellName = SpellInfo(spellId)
+        if spellName and string.find(string.lower(spellName), "totem") then
+            P.totemOwners[spellName] = casterName
+            P.Debug("Totem cast: " .. spellName .. " -> " .. casterName)
+        end
+    end
+end
+
+-- CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF / _ON_OTHERS
+-- Handles reflected damage (Thorns, Retribution Aura, Fire Shield, etc.)
+-- These are NOT covered by Nampower structured events.
+-- English client format:
+--   Self:  "You reflect 21 Holy damage to Obsidian Nullifier."
+--   Other: "Aquilla reflects 21 Holy damage to Obsidian Nullifier."
+local SCHOOL_NAME_TO_NUM = {
+    ["Physical"] = 0, ["Holy"] = 1, ["Fire"] = 2,
+    ["Nature"] = 3, ["Frost"] = 4, ["Shadow"] = 5, ["Arcane"] = 6,
+}
+
+local function OnDamageShield()
+    local msg = arg1
+    if not msg then return end
+
+    local source, amountStr, schoolName, target
+
+    -- Self: "You reflect 21 Holy damage to Obsidian Nullifier."
+    local _, _, a, s, t = string.find(msg, "You reflect (%d+) (%a+) damage to (.+)%.")
+    if a then
+        source = UnitName("player")
+        amountStr = a
+        schoolName = s
+        target = t
+    else
+        -- Other: "Aquilla reflects 21 Holy damage to Obsidian Nullifier."
+        local _, _, src, a2, s2, t2 = string.find(msg, "(.+) reflects (%d+) (%a+) damage to (.+)%.")
+        if a2 then
+            source = src
+            amountStr = a2
+            schoolName = s2
+            target = t2
+        end
+    end
+
+    if not source or not amountStr then
+        LogMissedEvent(event, msg)
+        return
+    end
+
+    local amount = tonumber(amountStr) or 0
+    if amount <= 0 then return end
+
+    local data = {
+        time = GetTime(),
+        type = "DAMAGE",
+        source = source,
+        target = target or "?",
+        sourceGUID = nil,
+        targetGUID = nil,
+        spellID = 0,
+        spellName = "Reflection",
+        amount = amount,
+        school = SCHOOL_NAME_TO_NUM[schoolName] or 0,
+        crit = false,
+        isPet = false,
+        petOwner = nil,
+    }
+
+    bus:Fire("DAMAGE", data)
+end
+
+-- CHAT_MSG_SPELL_PERIODIC_*_DAMAGE — Resource Drain parsing
+-- These events also fire for regular DoTs (which Nampower handles).
+-- We ONLY parse drain patterns here, ignoring DoT damage lines.
+-- English client format:
+--   Self:  "Obsidian Nullifier 's Drain Mana drains 500 Mana from you. Obsidian Nullifier gains 1000 Mana."
+--   Other: "Obsidian Nullifier 's Drain Mana drains 500 Mana from PlayerName. Obsidian Nullifier gains 1000 Mana."
+local function OnPeriodicDamage()
+    local msg = arg1
+    if not msg then return end
+
+    -- Only match drain patterns (not regular DoT damage)
+    local source, spellName, amountStr, resource, target
+
+    -- Self: "X 's Y drains Z Mana from you."
+    local _, _, src, spell, amt, res = string.find(msg,
+        "(.+) 's (.+) drains (%d+) (%a+) from you%.")
+    if src then
+        source = src
+        spellName = spell
+        amountStr = amt
+        resource = res
+        target = UnitName("player")
+    else
+        -- Other: "X 's Y drains Z Mana from Player."
+        local _, _, src2, spell2, amt2, res2, tgt2 = string.find(msg,
+            "(.+) 's (.+) drains (%d+) (%a+) from ([^%.]+)%.")
+        if src2 then
+            source = src2
+            spellName = spell2
+            amountStr = amt2
+            resource = res2
+            target = tgt2
+        end
+    end
+
+    -- Not a drain pattern
+    if not target or not amountStr then
+        -- Regular DoT ticks ("suffer", "damage") are handled by Nampower — skip those
+        -- Anything else is an unknown pattern — log as missed
+        if not string.find(msg, "suffer") and not string.find(msg, "damage")
+            and not string.find(msg, "absorb") and not string.find(msg, "resist") then
+            LogMissedEvent(event, msg)
+        end
+        return
+    end
+
+    local amount = tonumber(amountStr) or 0
+    if amount <= 0 then return end
+
+    local data = {
+        time = GetTime(),
+        type = "DRAIN",
+        source = source or "?",
+        target = target,
+        spellName = spellName or "Drain",
+        amount = amount,
+        resource = resource or "Mana",
+    }
+
+    bus:Fire("DRAIN", data)
+end
+
 -- UNIT_DIED (Nampower: arg1=guid)
 local function OnUnitDied()
     local guid = arg1
@@ -341,7 +734,6 @@ local function OnUnitDied()
         guid = guid,
     }
 
-    P.Debug("DEATH: " .. name)
     bus:Fire("DEATH", data)
 end
 
@@ -370,6 +762,17 @@ function P.FindUnitByName(name)
 end
 
 ---------------------------------------------------------------------------
+-- Periodic pet scanning (raidpet units are range-limited, so we rescan often)
+local petScanTimer = 0
+local PET_SCAN_INTERVAL = 3  -- seconds
+bus:SetScript("OnUpdate", function()
+    petScanTimer = petScanTimer + arg1
+    if petScanTimer >= PET_SCAN_INTERVAL then
+        petScanTimer = 0
+        P.ScanGroupPets()
+    end
+end)
+
 -- Register WoW events
 ---------------------------------------------------------------------------
 
@@ -381,11 +784,15 @@ bus:RegisterEvent("SPELL_DAMAGE_EVENT_OTHER")
 bus:RegisterEvent("AUTO_ATTACK_SELF")
 bus:RegisterEvent("AUTO_ATTACK_OTHER")
 
+-- Nampower spell go events (require NP_EnableSpellGoEvents CVar) — for totem tracking
+bus:RegisterEvent("SPELL_GO_SELF")
+bus:RegisterEvent("SPELL_GO_OTHER")
+
 -- Nampower heal events (require NP_EnableSpellHealEvents CVar)
+-- Only BY variants needed: BY_SELF covers all player heals, BY_OTHER covers all other heals
+-- ON_SELF/ON_OTHER would double-count (same heal fires both BY and ON perspectives)
 bus:RegisterEvent("SPELL_HEAL_BY_SELF")
-bus:RegisterEvent("SPELL_HEAL_ON_SELF")
 bus:RegisterEvent("SPELL_HEAL_BY_OTHER")
-bus:RegisterEvent("SPELL_HEAL_ON_OTHER")
 
 -- Nampower miss events
 bus:RegisterEvent("SPELL_MISS_SELF")
@@ -406,14 +813,56 @@ bus:RegisterEvent("RAID_ROSTER_UPDATE")
 bus:RegisterEvent("PARTY_MEMBERS_CHANGED")
 bus:RegisterEvent("PLAYER_ENTERING_WORLD")
 
+-- Pet changes (summon/dismiss/swap)
+bus:RegisterEvent("UNIT_PET")
+
+-- Damage shield events (Thorns, Retribution Aura, etc. — not in Nampower)
+bus:RegisterEvent("CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF")
+bus:RegisterEvent("CHAT_MSG_SPELL_DAMAGESHIELDS_ON_OTHERS")
+
+-- Resource drain events (Mana Drain, Mana Burn etc. — not in Nampower)
+-- These fire for periodic drain ticks AND regular DoTs, so we filter for drain patterns only
+bus:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_SELF_DAMAGE")
+bus:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_PARTY_DAMAGE")
+bus:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_FRIENDLYPLAYER_DAMAGE")
+
 -- Combat state events (forwarded to combat-state module)
 bus:RegisterEvent("PLAYER_REGEN_DISABLED")
 bus:RegisterEvent("PLAYER_REGEN_ENABLED")
 
+-- Seed player GUID from _SELF events (most reliable method)
+local function SeedPlayerGUID(guid)
+    if not guid then return end
+    if P.guidNames[guid] then return end  -- already known
+    local playerName = UnitName("player")
+    if playerName then
+        P.guidNames[guid] = playerName
+        P.Debug("Seeded player GUID from _SELF event: " .. playerName)
+        -- Also seed class
+        if P.dataStore and not P.dataStore.classes[playerName] then
+            local _, class = UnitClass("player")
+            if class then
+                P.dataStore.classes[playerName] = class
+            end
+        end
+    end
+end
+
 bus:SetScript("OnEvent", function()
-    -- Raw arg dump when debug mode is on
-    if P.debugMode then
+    -- Raw arg dump only in verbose mode (/parsec verbose)
+    if P.verboseMode then
         P.DumpArgs(event)
+    end
+
+    -- Seed player GUID from _SELF events before processing
+    if event == "SPELL_DAMAGE_EVENT_SELF" then
+        SeedPlayerGUID(arg2)  -- arg2 = casterGuid = player
+    elseif event == "AUTO_ATTACK_SELF" then
+        SeedPlayerGUID(arg1)  -- arg1 = attackerGuid = player
+    elseif event == "SPELL_MISS_SELF" then
+        SeedPlayerGUID(arg1)  -- arg1 = casterGuid = player
+    elseif event == "SPELL_HEAL_BY_SELF" then
+        SeedPlayerGUID(arg2)  -- arg2 = casterGuid = player
     end
 
     -- Nampower damage
@@ -423,9 +872,12 @@ bus:SetScript("OnEvent", function()
         OnAutoAttack()
 
     -- Nampower healing
-    elseif event == "SPELL_HEAL_BY_SELF" or event == "SPELL_HEAL_ON_SELF"
-        or event == "SPELL_HEAL_BY_OTHER" or event == "SPELL_HEAL_ON_OTHER" then
+    elseif event == "SPELL_HEAL_BY_SELF" or event == "SPELL_HEAL_BY_OTHER" then
         OnSpellHeal()
+
+    -- Nampower spell go (totem tracking)
+    elseif event == "SPELL_GO_SELF" or event == "SPELL_GO_OTHER" then
+        OnSpellGo()
 
     -- Nampower miss
     elseif event == "SPELL_MISS_SELF" or event == "SPELL_MISS_OTHER" then
@@ -435,6 +887,17 @@ bus:SetScript("OnEvent", function()
     elseif event == "BUFF_ADDED_SELF" or event == "BUFF_ADDED_OTHER"
         or event == "BUFF_REMOVED_SELF" or event == "BUFF_REMOVED_OTHER" then
         OnBuffChanged()
+
+    -- Damage shields (Thorns, Retribution Aura, etc.)
+    elseif event == "CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF"
+        or event == "CHAT_MSG_SPELL_DAMAGESHIELDS_ON_OTHERS" then
+        OnDamageShield()
+
+    -- Resource drains (Mana Drain, etc.) — only drain patterns, DoTs ignored
+    elseif event == "CHAT_MSG_SPELL_PERIODIC_SELF_DAMAGE"
+        or event == "CHAT_MSG_SPELL_PERIODIC_PARTY_DAMAGE"
+        or event == "CHAT_MSG_SPELL_PERIODIC_FRIENDLYPLAYER_DAMAGE" then
+        OnPeriodicDamage()
 
     -- SuperWoW
     elseif event == "UNIT_CASTEVENT" then
@@ -446,9 +909,16 @@ bus:SetScript("OnEvent", function()
     elseif event == "RAID_ROSTER_UPDATE" or event == "PARTY_MEMBERS_CHANGED"
         or event == "PLAYER_ENTERING_WORLD" then
         P.ScanGroupClasses()
+        P.ScanGroupPets()
+        P.ScanGroupMembers()
 
-    -- Combat state (forwarded)
+    -- Pet summon/dismiss/swap
+    elseif event == "UNIT_PET" then
+        P.ScanGroupPets()
+
+    -- Combat state (forwarded, also rescan pets on combat start)
     elseif event == "PLAYER_REGEN_DISABLED" then
+        P.ScanGroupPets()
         if P.combatState then P.combatState:OnCombatStart() end
     elseif event == "PLAYER_REGEN_ENABLED" then
         if P.combatState then P.combatState:OnCombatEnd() end

@@ -45,6 +45,7 @@ local function SetupCVars()
     local cvars = {
         "NP_EnableAutoAttackEvents",
         "NP_EnableSpellHealEvents",
+        "NP_EnableSpellGoEvents",  -- for totem ownership tracking
     }
 
     local enabled = 0
@@ -87,24 +88,72 @@ SlashCmdList["PARSEC"] = function(msg)
         pp.ToggleWindow()
 
     elseif msg == "show" then
-        if ParsecWindow then
-            ParsecWindow:Show()
-            pp.UpdateWindow()
-        end
+        pp.ShowAllWindows()
 
     elseif msg == "hide" then
-        if ParsecWindow then
-            ParsecWindow:Hide()
-        end
+        pp.HideAllWindows()
 
     elseif msg == "reset" then
-        if pp.dataStore then
-            pp.dataStore:Reset()
-            pp.UpdateWindow()
-        end
+        pp.ResetData()
 
     elseif msg == "debug" then
         pp.ToggleDebug()
+
+    elseif msg == "verbose" then
+        pp.verboseMode = not pp.verboseMode
+        pp.Print("Verbose mode: " .. (pp.verboseMode and "|cff00ff00ON|r (raw event args)" or "|cffff4444OFF|r"))
+
+    elseif msg == "pets" then
+        -- Show current pet owner cache
+        pp.Print("--- Pet Owner Cache ---")
+        local count = 0
+        for guid, owner in pairs(pp.petOwners) do
+            local petName = UnitName and UnitName(guid) or guid
+            pp.Print("  " .. (petName or guid) .. " -> " .. owner)
+            count = count + 1
+        end
+        pp.Print("--- Totem Owner Cache ---")
+        for spellName, owner in pairs(pp.totemOwners) do
+            pp.Print("  " .. spellName .. " -> " .. owner)
+            count = count + 1
+        end
+        pp.Print("Total cached: " .. count)
+
+    elseif msg == "drains" then
+        -- Show mana drain summary
+        if not pp.dataStore then
+            pp.Print("No data store.")
+            return
+        end
+        pp.Print("--- Resource Drains Received ---")
+        local count = 0
+        for name, data in pairs(pp.dataStore.current.players) do
+            if data.drain_received and data.drain_received > 0 then
+                pp.Print("  " .. name .. ": " .. data.drain_received .. " total drained")
+                for spell, info in pairs(data.drain_spells) do
+                    pp.Print("    " .. spell .. ": " .. info.total .. " " .. (info.resource or "Mana") .. " (" .. info.hits .. "x, from " .. (info.source or "?") .. ")")
+                end
+                count = count + 1
+            end
+        end
+        if count == 0 then
+            pp.Print("  No drains recorded.")
+        end
+
+    elseif msg == "missed" then
+        -- Show unhandled/missed CHAT_MSG events
+        local missed = pp.missedEvents or {}
+        local count = table.getn(missed)
+        if count == 0 then
+            pp.Print("No missed events recorded.")
+        else
+            pp.Print("--- Missed Events (" .. count .. ") ---")
+            for i = 1, count do
+                local e = missed[i]
+                pp.Print("|cffff8800" .. e.time .. "|r [" .. e.event .. "] " .. e.msg)
+            end
+            pp.Print("Copy these to help add new parsers!")
+        end
 
     elseif msg == "stats" then
         pp.ShowStats()
@@ -113,48 +162,33 @@ SlashCmdList["PARSEC"] = function(msg)
         -- Diagnostic: show which files loaded
         pp.Print("--- Load Diagnostics ---")
         pp.Print("Loaded files: " .. table.concat(pp._loadedFiles, ", "))
-        pp.Print("ParsecWindow: " .. (ParsecWindow and "OK" or "|cffff4444NIL|r"))
+        pp.Print("Windows: " .. table.getn(pp.windows) .. " created")
         pp.Print("eventBus: " .. (pp.eventBus and "OK" or "|cffff4444NIL|r"))
         pp.Print("combatState: " .. (pp.combatState and "OK" or "|cffff4444NIL|r"))
         pp.Print("dataStore: " .. (pp.dataStore and "OK" or "|cffff4444NIL|r"))
-        pp.Print("window: " .. (pp.window and "OK" or "|cffff4444NIL|r"))
+        pp.Print("groupMembers: " .. (pp.groupMembers and "OK" or "|cffff4444NIL|r"))
 
     elseif string.sub(msg, 1, 6) == "events" then
         local count = tonumber(string.sub(msg, 8)) or 10
         pp.ShowEvents(count)
-
-    elseif msg == "damage" or msg == "dmg" then
-        pp.window.viewType = "damage"
-        pp.UpdateWindow()
-
-    elseif msg == "dps" then
-        pp.window.viewType = "dps"
-        pp.UpdateWindow()
-
-    elseif msg == "healing" or msg == "heal" then
-        pp.window.viewType = "healing"
-        pp.UpdateWindow()
-
-    elseif msg == "hps" then
-        pp.window.viewType = "hps"
-        pp.UpdateWindow()
 
     elseif msg == "dump" then
         pp.DumpArgs("ManualDump")
 
     elseif msg == "help" then
         pp.Print("--- Parsec Commands ---")
-        pp.Print("/parsec - Toggle window")
+        pp.Print("/parsec - Toggle all windows")
+        pp.Print("/parsec show - Show all windows")
+        pp.Print("/parsec hide - Hide all windows")
         pp.Print("/parsec reset - Reset all data")
-        pp.Print("/parsec debug - Toggle debug output")
+        pp.Print("/parsec debug - Toggle debug (pet attribution only)")
+        pp.Print("/parsec verbose - Toggle verbose (raw event args)")
+        pp.Print("/parsec pets - Show pet/totem owner cache")
+        pp.Print("/parsec drains - Show resource drains received")
+        pp.Print("/parsec missed - Show unhandled CHAT_MSG events")
         pp.Print("/parsec stats - Show statistics")
         pp.Print("/parsec diag - Load diagnostics")
         pp.Print("/parsec events [n] - Show last N events")
-        pp.Print("/parsec dmg|dps|heal|hps - Switch view")
-        pp.Print("/parsec dump - Dump current event args")
-        pp.Print("Right-click title = cycle view")
-        pp.Print("Middle-click title = cycle segment")
-        pp.Print("Scroll wheel = scroll bars")
     else
         pp.Print("Unknown command: " .. msg .. " (try /parsec help)")
     end
@@ -185,14 +219,25 @@ initFrame:SetScript("OnEvent", function()
     -- Setup Nampower CVars
     SetupCVars()
 
-    -- Initial class scan
-    pp.ScanGroupClasses()
+    -- Seed player GUID into name cache (UnitName(playerGUID) can fail)
+    if UnitGUID then
+        local playerGUID = UnitGUID("player")
+        local playerName = UnitName("player")
+        if playerGUID and playerName then
+            pp.guidNames[playerGUID] = playerName
+            pp.Debug("Seeded player GUID: " .. playerName)
+        end
+    end
 
-    -- Show window by default
-    if ParsecWindow then
-        ParsecWindow:Show()
-        pp.UpdateWindow()
+    -- Initial class + pet + group member scan
+    pp.ScanGroupClasses()
+    pp.ScanGroupPets()
+    pp.ScanGroupMembers()
+
+    -- Show all windows
+    if table.getn(pp.windows) > 0 then
+        pp.ShowAllWindows()
     else
-        pp.Print("|cffff4444ParsecWindow frame not created! Check window.xml|r")
+        pp.Print("|cffff4444No windows created! Check window.lua|r")
     end
 end)

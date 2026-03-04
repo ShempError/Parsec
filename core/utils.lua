@@ -36,13 +36,7 @@ P.SCHOOL_COLORS = {
 -- Format large numbers: 1234567 -> "1.23M", 12345 -> "12.3k"
 function P.FormatNumber(n)
     if not n then return "0" end
-    if n >= 1000000 then
-        return string.format("%.2fM", n / 1000000)
-    elseif n >= 10000 then
-        return string.format("%.1fk", n / 1000)
-    else
-        return string.format("%d", n)
-    end
+    return string.format("%d", n)
 end
 
 -- Format time: 65.3 -> "1:05"
@@ -142,4 +136,48 @@ function P.GetPetOwner(petName)
     -- SuperWoW adds "(OwnerName)" to pet names
     local owner = string.gfind(petName, "%((.+)%)")()
     return owner
+end
+
+-- Group member tracking (for NPC/faction filtering)
+P.groupMembers = {}
+
+function P.ScanGroupMembers()
+    P.groupMembers = {}
+    local playerName = UnitName("player")
+    if playerName then
+        P.groupMembers[playerName] = true
+    end
+    local numRaid = GetNumRaidMembers()
+    if numRaid > 0 then
+        for i = 1, numRaid do
+            local name = GetRaidRosterInfo(i)
+            if name then
+                P.groupMembers[name] = true
+            end
+        end
+    else
+        local numParty = GetNumPartyMembers()
+        for i = 1, numParty do
+            local name = UnitName("party" .. i)
+            if name then
+                P.groupMembers[name] = true
+            end
+        end
+    end
+end
+
+function P.IsGroupMember(name)
+    return P.groupMembers[name] == true
+end
+
+-- Format duration for title bar: [24.0s] or [1:24]
+function P.FormatDuration(seconds)
+    if not seconds or seconds <= 0 then return "[0.0s]" end
+    if seconds < 60 then
+        return "[" .. string.format("%.1f", seconds) .. "s]"
+    else
+        local m = math.floor(seconds / 60)
+        local s = math.floor(seconds - m * 60)
+        return "[" .. string.format("%d:%02d", m, s) .. "]"
+    end
 end

@@ -13,6 +13,7 @@ core\data-store.lua
 core\debug.lua
 modules\damage.lua
 modules\healing.lua
+modules\drains.lua
 ui\window.xml
 ui\window.lua
 core\bootstrap.lua
