@@ -107,7 +107,6 @@ button:SetScript("OnEnter", function()
     GameTooltip:AddLine("Parsec - Damage Meter")
     GameTooltip:AddLine("|cff00ccffLeft-Click:|r Toggle windows", 1, 1, 1)
     GameTooltip:AddLine("|cff00ccffRight-Click:|r Options", 1, 1, 1)
-    GameTooltip:AddLine("|cff00ccffRight-Drag:|r Move button", 1, 1, 1)
     GameTooltip:Show()
 end)
 

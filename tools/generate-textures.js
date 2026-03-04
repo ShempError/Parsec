@@ -179,7 +179,7 @@ function generateIcon() {
 function generateBanner() {
     const W = 256, H = 64;
     const pixels = new Uint8Array(W * H * 4);
-    const BG_TOP = [6, 10, 22], BG_BOT = [12, 18, 36];
+    const BG_TOP = [10, 14, 30], BG_BOT = [6, 8, 16];
 
     for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
@@ -196,7 +196,7 @@ function generateBanner() {
             if (y <= 1) { const li = (1 - ht) * (y === 0 ? 0.6 : 0.25); r += (C[0]-r)*li; g += (C[1]-g)*li; b += (C[2]-b)*li; }
             if (y >= H-2) { const li = (1 - ht) * (y === H-1 ? 0.6 : 0.25); r += (C[0]-r)*li; g += (C[1]-g)*li; b += (C[2]-b)*li; }
             const seed = ((x * 191 + y * 277) ^ (x * 13 + y * 41)) % 1000;
-            if (seed < 8 && y > 3 && y < H-3) {
+            if (seed < 5 && y > 3 && y < H-3) {
                 const sB = 0.2 + (seed % 6) * 0.1;
                 r = clamp(r+120*sB, 0, 255); g = clamp(g+140*sB, 0, 255); b = clamp(b+200*sB, 0, 255);
             }
@@ -206,7 +206,7 @@ function generateBanner() {
                     r += (C[0]-r)*li; g += (C[1]-g)*li; b += (C[2]-b)*li;
                 }
             }
-            const cs = 8, ci = 0.35;
+            const cs = 8, ci = 0.15;
             if ((x < cs && y === 2) || (x === 2 && y < cs)) { r += (C[0]-r)*ci; g += (C[1]-g)*ci; b += (C[2]-b)*ci; }
             if ((x > W-cs-1 && y === 2) || (x === W-3 && y < cs)) { r += (C[0]-r)*ci; g += (C[1]-g)*ci; b += (C[2]-b)*ci; }
             if ((x < cs && y === H-3) || (x === 2 && y > H-cs-1)) { r += (C[0]-r)*ci; g += (C[1]-g)*ci; b += (C[2]-b)*ci; }
@@ -219,6 +219,212 @@ function generateBanner() {
         }
     }
     writeTGA(path.join(TEXTURES_DIR, 'banner.tga'), W, H, pixels);
+}
+
+// =====================================================================
+// HEADER (64x32) - title bar background for meter windows
+// =====================================================================
+function generateHeader() {
+    const W = 64, H = 32;
+    const pixels = new Uint8Array(W * H * 4);
+    // Noticeably brighter than window-bg so header stands out
+    const BG_TOP = [18, 24, 48], BG_BOT = [10, 14, 30];
+
+    for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+            const vt = y / (H - 1);
+            let r = BG_TOP[0] + (BG_BOT[0] - BG_TOP[0]) * vt;
+            let g = BG_TOP[1] + (BG_BOT[1] - BG_TOP[1]) * vt;
+            let b = BG_TOP[2] + (BG_BOT[2] - BG_TOP[2]) * vt;
+
+            // Cyan highlight line at top edge (stronger)
+            if (y === 0) {
+                const li = 0.40;
+                r += (C[0] - r) * li; g += (C[1] - g) * li; b += (C[2] - b) * li;
+            } else if (y === 1) {
+                const li = 0.18;
+                r += (C[0] - r) * li; g += (C[1] - g) * li; b += (C[2] - b) * li;
+            }
+
+            // Bottom separator line (subtle dark edge + cyan hint)
+            if (y === H - 1) {
+                r = 5; g = 8; b = 14;
+            } else if (y === H - 2) {
+                const li = 0.12;
+                r += (C[0] - r) * li; g += (C[1] - g) * li; b += (C[2] - b) * li;
+            }
+
+            // Stars (sparse, no horizontal variation for seamless stretching)
+            const seed = ((x * 191 + y * 277) ^ (x * 13 + y * 41)) % 1000;
+            if (seed < 5 && y > 2 && y < H - 3) {
+                const sB = 0.18 + (seed % 5) * 0.10;
+                r = clamp(r + 110 * sB, 0, 255);
+                g = clamp(g + 130 * sB, 0, 255);
+                b = clamp(b + 200 * sB, 0, 255);
+            }
+
+            const idx = (y * W + x) * 4;
+            pixels[idx] = clamp(Math.round(r), 0, 255);
+            pixels[idx+1] = clamp(Math.round(g), 0, 255);
+            pixels[idx+2] = clamp(Math.round(b), 0, 255);
+            pixels[idx+3] = 255;
+        }
+    }
+    writeTGA(path.join(TEXTURES_DIR, 'header.tga'), W, H, pixels);
+}
+
+// =====================================================================
+// WINDOW BACKGROUND (128x128) - tileable starry sky
+// =====================================================================
+function generateWindowBG() {
+    const W = 128, H = 128;
+    const pixels = new Uint8Array(W * H * 4);
+
+    // Nebula glow centers (within the tile, positioned for visual interest)
+    const glows = [
+        { x: 30, y: 45, radius: 35, intensity: 0.04 },
+        { x: 95, y: 20, radius: 28, intensity: 0.03 },
+        { x: 70, y: 100, radius: 32, intensity: 0.035 },
+    ];
+
+    for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+            // Base color with subtle vertical gradient (wraps smoothly)
+            const vt = (Math.cos(y / H * Math.PI * 2) + 1) / 2; // cosine for seamless wrap
+            let r = 8 + vt * 2;
+            let g = 10 + vt * 2;
+            let b = 20 + vt * 4;
+
+            // Subtle noise
+            const noise = ((x * 173 + y * 251) ^ (x * 7 + y * 53)) % 1000;
+            const nr = (noise % 5) - 2;
+            const ng = ((noise * 3) % 5) - 2;
+            const nb = ((noise * 7) % 7) - 3; // blue gets more noise
+            r += nr; g += ng; b += nb;
+
+            // Stars (similar to banner algorithm)
+            const seed = ((x * 191 + y * 277) ^ (x * 13 + y * 41)) % 1000;
+            if (seed < 6 && x > 0 && y > 0 && x < W-1 && y < H-1) {
+                const sB = 0.12 + (seed % 5) * 0.06;
+                r = clamp(r + 90 * sB, 0, 255);
+                g = clamp(g + 110 * sB, 0, 255);
+                b = clamp(b + 170 * sB, 0, 255);
+            }
+
+            // Nebula glow spots
+            for (let gi = 0; gi < glows.length; gi++) {
+                const gl = glows[gi];
+                // Wrap-aware distance for seamless tiling
+                let dx = Math.abs(x - gl.x);
+                let dy = Math.abs(y - gl.y);
+                if (dx > W / 2) dx = W - dx;
+                if (dy > H / 2) dy = H - dy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const glI = Math.pow(Math.max(0, 1 - dist / gl.radius), 2) * gl.intensity;
+                r += (C[0] - r) * glI;
+                g += (C[1] - g) * glI;
+                b += (C[2] - b) * glI;
+            }
+
+            const idx = (y * W + x) * 4;
+            pixels[idx] = clamp(Math.round(r), 0, 255);
+            pixels[idx+1] = clamp(Math.round(g), 0, 255);
+            pixels[idx+2] = clamp(Math.round(b), 0, 255);
+            pixels[idx+3] = 255;
+        }
+    }
+    writeTGA(path.join(TEXTURES_DIR, 'window-bg.tga'), W, H, pixels);
+}
+
+// =====================================================================
+// WINDOW BORDER (128x16) - custom edge file for backdrop
+// KB: turtle-wow-kb/03-ui-xml/backdrop-border-textures.md
+// Strip layout: 8 segments of 16x16 in horizontal strip
+// Order: Seg0=Left, Seg1=Right, Seg2=Top(vertical), Seg3=Bottom(vertical),
+//        Seg4=TL, Seg5=TR, Seg6=BL, Seg7=BR
+// Top/Bottom edges stored VERTICAL — WoW rotates CW 90° when rendering
+// CW rotation: stored (sx,sy) → rendered (ES-1-sy, sx)
+// =====================================================================
+function generateWindowBorder() {
+    const W = 128, H = 16;
+    const ES = 16; // edgeSize
+    const pixels = new Uint8Array(W * H * 4);
+    // Border line color: visible cyan-grey
+    const LR = 35, LG = 55, LB = 85, LA = 240;
+    // Inner glow (subtle)
+    const GR = 20, GG = 32, GB = 55, GA = 110;
+
+    // Helper: set pixel in a specific segment
+    function segPixel(seg, lx, ly, cr, cg, cb, ca) {
+        const gx = seg * ES + lx;
+        const gy = ly;
+        if (gx < 0 || gx >= W || gy < 0 || gy >= H) return;
+        const idx = (gy * W + gx) * 4;
+        pixels[idx] = clamp(Math.round(cr), 0, 255);
+        pixels[idx+1] = clamp(Math.round(cg), 0, 255);
+        pixels[idx+2] = clamp(Math.round(cb), 0, 255);
+        pixels[idx+3] = clamp(Math.round(ca), 0, 255);
+    }
+
+    // Seg 0: Left edge — vertical, outer at x=0
+    for (let y = 0; y < ES; y++) {
+        segPixel(0, 0, y, LR, LG, LB, LA);
+        segPixel(0, 1, y, GR, GG, GB, GA);
+    }
+
+    // Seg 1: Right edge — vertical, outer at x=ES-1
+    for (let y = 0; y < ES; y++) {
+        segPixel(1, ES-1, y, LR, LG, LB, LA);
+        segPixel(1, ES-2, y, GR, GG, GB, GA);
+    }
+
+    // Seg 2: Top edge — STORED VERTICAL (WoW rotates CW 90°)
+    // After CW: stored x=0 → rendered y=0 (outer top edge)
+    for (let y = 0; y < ES; y++) {
+        segPixel(2, 0, y, LR, LG, LB, LA);
+        segPixel(2, 1, y, GR, GG, GB, GA);
+    }
+
+    // Seg 3: Bottom edge — STORED VERTICAL (WoW rotates CW 90°)
+    // After CW: stored x=ES-1 → rendered y=ES-1 (outer bottom edge)
+    for (let y = 0; y < ES; y++) {
+        segPixel(3, ES-1, y, LR, LG, LB, LA);
+        segPixel(3, ES-2, y, GR, GG, GB, GA);
+    }
+
+    // Seg 4: TL corner — outer at left (x=0) and top (y=0)
+    for (let i = 0; i < ES; i++) {
+        segPixel(4, 0, i, LR, LG, LB, LA);     // left line
+        segPixel(4, i, 0, LR, LG, LB, LA);     // top line
+        segPixel(4, 1, i, GR, GG, GB, GA);      // left glow
+        segPixel(4, i, 1, GR, GG, GB, GA);      // top glow
+    }
+
+    // Seg 5: TR corner — outer at right (x=ES-1) and top (y=0)
+    for (let i = 0; i < ES; i++) {
+        segPixel(5, ES-1, i, LR, LG, LB, LA);  // right line
+        segPixel(5, i, 0, LR, LG, LB, LA);     // top line
+        segPixel(5, ES-2, i, GR, GG, GB, GA);   // right glow
+        segPixel(5, i, 1, GR, GG, GB, GA);      // top glow
+    }
+
+    // Seg 6: BL corner — outer at left (x=0) and bottom (y=ES-1)
+    for (let i = 0; i < ES; i++) {
+        segPixel(6, 0, i, LR, LG, LB, LA);        // left line
+        segPixel(6, i, ES-1, LR, LG, LB, LA);     // bottom line
+        segPixel(6, 1, i, GR, GG, GB, GA);         // left glow
+        segPixel(6, i, ES-2, GR, GG, GB, GA);      // bottom glow
+    }
+
+    // Seg 7: BR corner — outer at right (x=ES-1) and bottom (y=ES-1)
+    for (let i = 0; i < ES; i++) {
+        segPixel(7, ES-1, i, LR, LG, LB, LA);     // right line
+        segPixel(7, i, ES-1, LR, LG, LB, LA);     // bottom line
+        segPixel(7, ES-2, i, GR, GG, GB, GA);      // right glow
+        segPixel(7, i, ES-2, GR, GG, GB, GA);      // bottom glow
+    }
+
+    writeTGA(path.join(TEXTURES_DIR, 'window-border.tga'), W, H, pixels);
 }
 
 // =====================================================================
@@ -702,6 +908,9 @@ console.log('Generating Parsec textures...');
 console.log('--- Core ---');
 generateIcon();
 generateBanner();
+generateHeader();
+generateWindowBG();
+generateWindowBorder();
 
 console.log('--- Settings Icons (16x16) ---');
 genIconEye();
@@ -736,4 +945,4 @@ genBarGradient();
 genBarStriped();
 genBarGlossy();
 
-console.log(`\nDone! ${2 + 8 + 4 + 9 + 4} textures generated.`);
+console.log(`\nDone! ${5 + 8 + 4 + 9 + 4} textures generated.`);

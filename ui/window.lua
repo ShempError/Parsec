@@ -27,8 +27,6 @@ local SEGMENT_LABELS = {
 
 local WINDOW_DEFS = {
     { viewType = "damage",  segment = "current", title = "Damage" },
-    { viewType = "healing", segment = "current", title = "Healing" },
-    { viewType = "dps",     segment = "current", title = "DPS" },
 }
 
 ---------------------------------------------------------------------------
@@ -70,7 +68,7 @@ local function CreateBar(parent)
     bar.value = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     bar.value:SetPoint("RIGHT", bar, "RIGHT", -2, 0)
     bar.value:SetJustifyH("RIGHT")
-    bar.value:SetTextColor(1, 1, 1)
+    bar.value:SetTextColor(1, 0.82, 0)
     bar.value:SetShadowColor(0, 0, 0, 1)
     bar.value:SetShadowOffset(1, -1)
 
@@ -182,29 +180,224 @@ function P.ShowBarTooltip(bar)
 end
 
 ---------------------------------------------------------------------------
--- Title bar icon button helper
+-- Shared state for dropdown menus
 ---------------------------------------------------------------------------
 
-local function CreateTitleButton(parent, iconPath, tooltip, onClick)
+local TEX_PATH = "Interface\\AddOns\\Parsec\\textures\\"
+P._windowCounter = 0
+local menuTargetFrame = nil
+
+---------------------------------------------------------------------------
+-- Main menu dropdown (View, Segment, New Window, Reset, Options, Close)
+---------------------------------------------------------------------------
+
+local function InitMainMenu()
+    if not menuTargetFrame then return end
+    local targetFrame = menuTargetFrame
+    local pc = targetFrame.pc
+    if not pc then return end
+
+    local info
+
+    -- View section
+    info = {}
+    info.text = "View"
+    info.isTitle = true
+    UIDropDownMenu_AddButton(info)
+
+    for i = 1, table.getn(VIEW_CYCLE) do
+        local capturedView = VIEW_CYCLE[i]
+        info = {}
+        info.text = VIEW_LABELS[capturedView]
+        info.checked = (pc.viewType == capturedView)
+        info.func = function()
+            pc.viewType = capturedView
+            pc.scrollOffset = 0
+            P.UpdateWindowTitle(targetFrame)
+            P.UpdateParsecWindow(targetFrame)
+            P.SaveWindowState()
+        end
+        UIDropDownMenu_AddButton(info)
+    end
+
+    -- Segment section
+    info = {}
+    info.text = "Segment"
+    info.isTitle = true
+    UIDropDownMenu_AddButton(info)
+
+    local segments = { "current", "overall" }
+    for i = 1, 2 do
+        local capturedSeg = segments[i]
+        info = {}
+        info.text = SEGMENT_LABELS[capturedSeg]
+        info.checked = (pc.segment == capturedSeg)
+        info.func = function()
+            pc.segment = capturedSeg
+            pc.scrollOffset = 0
+            P.UpdateWindowTitle(targetFrame)
+            P.UpdateParsecWindow(targetFrame)
+            P.SaveWindowState()
+        end
+        UIDropDownMenu_AddButton(info)
+    end
+
+    -- Separator
+    info = {}
+    info.text = ""
+    info.disabled = true
+    UIDropDownMenu_AddButton(info)
+
+    -- New Window
+    info = {}
+    info.text = "New Window"
+    info.func = function()
+        local f = P.CreateWindow("damage", "current")
+        if f then
+            f:Show()
+            P.UpdateParsecWindow(f)
+            P.SaveWindowState()
+        end
+    end
+    UIDropDownMenu_AddButton(info)
+
+    -- Reset
+    info = {}
+    info.text = "Reset All"
+    info.func = function()
+        P.ResetData()
+    end
+    UIDropDownMenu_AddButton(info)
+
+    -- Options
+    info = {}
+    info.text = "Options"
+    info.func = function()
+        P.ToggleOptions()
+    end
+    UIDropDownMenu_AddButton(info)
+
+    -- Close Window (only if more than 1)
+    if table.getn(P.windows) > 1 then
+        info = {}
+        info.text = "|cffff4444Close Window|r"
+        info.func = function()
+            P.RemoveWindow(targetFrame)
+        end
+        UIDropDownMenu_AddButton(info)
+    end
+end
+
+---------------------------------------------------------------------------
+-- Announce channel dropdown (Say, Party, Raid, BG)
+---------------------------------------------------------------------------
+
+local function InitAnnounceMenu()
+    if not menuTargetFrame then return end
+    local targetFrame = menuTargetFrame
+
+    local channels = {
+        { label = "Say (/s)", ch = "SAY" },
+        { label = "Party (/p)", ch = "PARTY" },
+        { label = "Raid (/raid)", ch = "RAID" },
+        { label = "Battleground (/bg)", ch = "BATTLEGROUND" },
+    }
+
+    for i = 1, table.getn(channels) do
+        local capturedCh = channels[i].ch
+        local info = {}
+        info.text = channels[i].label
+        info.func = function()
+            P.AnnounceToChannel(targetFrame, capturedCh)
+        end
+        UIDropDownMenu_AddButton(info)
+    end
+end
+
+-- Shared dropdown frames (context menu style, no visible button)
+local mainMenu = CreateFrame("Frame", "ParsecMainMenu")
+mainMenu.displayMode = "MENU"
+mainMenu.initialize = InitMainMenu
+
+local announceMenu = CreateFrame("Frame", "ParsecAnnounceMenu")
+announceMenu.displayMode = "MENU"
+announceMenu.initialize = InitAnnounceMenu
+
+---------------------------------------------------------------------------
+-- Text button helper for title bar
+---------------------------------------------------------------------------
+
+local function CreateTitleBarButton(parent, text, tooltip, width, hoverColor, onClick)
     local btn = CreateFrame("Button", nil, parent)
-    btn:SetWidth(14)
     btn:SetHeight(14)
+    btn:SetWidth(width)
 
-    local icon = btn:CreateTexture(nil, "ARTWORK")
-    icon:SetAllPoints(btn)
-    icon:SetTexture(iconPath)
+    -- Dark background
+    local bg = btn:CreateTexture(nil, "BACKGROUND")
+    bg:SetTexture(0.08, 0.08, 0.12, 0.9)
+    bg:SetPoint("TOPLEFT", btn, "TOPLEFT", 1, -1)
+    bg:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -1, 1)
+    btn.bg = bg
 
-    local hl = btn:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints(btn)
-    hl:SetTexture(1, 1, 1, 0.2)
+    -- Border textures (1px edges)
+    local borderTop = btn:CreateTexture(nil, "BORDER")
+    borderTop:SetTexture(0.3, 0.3, 0.3, 0.8)
+    borderTop:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
+    borderTop:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
+    borderTop:SetHeight(1)
+    btn.borderTop = borderTop
+
+    local borderBot = btn:CreateTexture(nil, "BORDER")
+    borderBot:SetTexture(0.3, 0.3, 0.3, 0.8)
+    borderBot:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
+    borderBot:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+    borderBot:SetHeight(1)
+    btn.borderBot = borderBot
+
+    local borderL = btn:CreateTexture(nil, "BORDER")
+    borderL:SetTexture(0.3, 0.3, 0.3, 0.8)
+    borderL:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
+    borderL:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
+    borderL:SetWidth(1)
+    btn.borderL = borderL
+
+    local borderR = btn:CreateTexture(nil, "BORDER")
+    borderR:SetTexture(0.3, 0.3, 0.3, 0.8)
+    borderR:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
+    borderR:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+    borderR:SetWidth(1)
+    btn.borderR = borderR
+
+    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    label:SetText(text)
+    label:SetTextColor(0.7, 0.7, 0.7)
+    label:SetShadowColor(0, 0, 0, 1)
+    label:SetShadowOffset(1, -1)
+    btn.label = label
 
     local capturedTip = tooltip
+    local hR = hoverColor and hoverColor.r or 0
+    local hG = hoverColor and hoverColor.g or 0.8
+    local hB = hoverColor and hoverColor.b or 1
     btn:SetScript("OnEnter", function()
-        GameTooltip:SetOwner(this, "ANCHOR_BOTTOM")
-        GameTooltip:AddLine(capturedTip, 1, 1, 1)
-        GameTooltip:Show()
+        label:SetTextColor(1, 1, 1)
+        this.borderTop:SetTexture(hR, hG, hB, 0.6)
+        this.borderBot:SetTexture(hR, hG, hB, 0.6)
+        this.borderL:SetTexture(hR, hG, hB, 0.6)
+        this.borderR:SetTexture(hR, hG, hB, 0.6)
+        if capturedTip then
+            GameTooltip:SetOwner(this, "ANCHOR_BOTTOM")
+            GameTooltip:AddLine(capturedTip, 1, 1, 1)
+            GameTooltip:Show()
+        end
     end)
     btn:SetScript("OnLeave", function()
+        label:SetTextColor(0.7, 0.7, 0.7)
+        this.borderTop:SetTexture(0.3, 0.3, 0.3, 0.8)
+        this.borderBot:SetTexture(0.3, 0.3, 0.3, 0.8)
+        this.borderL:SetTexture(0.3, 0.3, 0.3, 0.8)
+        this.borderR:SetTexture(0.3, 0.3, 0.3, 0.8)
         GameTooltip:Hide()
     end)
     btn:SetScript("OnClick", onClick)
@@ -213,54 +406,25 @@ local function CreateTitleButton(parent, iconPath, tooltip, onClick)
 end
 
 ---------------------------------------------------------------------------
--- Cycle view type for a window
----------------------------------------------------------------------------
-
-local function CycleView(frame)
-    local pc = frame.pc
-    local cur = pc.viewType
-    local nextIdx = 1
-    for i = 1, table.getn(VIEW_CYCLE) do
-        if VIEW_CYCLE[i] == cur then
-            nextIdx = i + 1
-            if nextIdx > table.getn(VIEW_CYCLE) then nextIdx = 1 end
-            break
-        end
-    end
-    pc.viewType = VIEW_CYCLE[nextIdx]
-    pc.scrollOffset = 0
-    P.UpdateWindowTitle(frame)
-    P.UpdateParsecWindow(frame)
-end
-
----------------------------------------------------------------------------
--- Toggle segment for a window
----------------------------------------------------------------------------
-
-local function ToggleSegment(frame)
-    local pc = frame.pc
-    if pc.segment == "current" then
-        pc.segment = "overall"
-    else
-        pc.segment = "current"
-    end
-    pc.scrollOffset = 0
-    P.UpdateWindowTitle(frame)
-    P.UpdateParsecWindow(frame)
-end
-
----------------------------------------------------------------------------
 -- Update window title text
 ---------------------------------------------------------------------------
+
+local SEGMENT_INDICATORS = {
+    current = "|cff00ccff[C]|r",
+    overall = "|cffffff00[O]|r",
+}
 
 function P.UpdateWindowTitle(frame)
     local pc = frame.pc
     if not pc then return end
     local viewLabel = VIEW_LABELS[pc.viewType] or pc.viewType
-    local segLabel = SEGMENT_LABELS[pc.segment] or pc.segment
-    local duration = P.combatState:GetDuration(pc.segment)
+    local segInd = SEGMENT_INDICATORS[pc.segment] or pc.segment
+    local duration = 0
+    if P.dataStore then
+        duration = P.dataStore:GetDuration(pc.segment)
+    end
     local durText = P.FormatDuration(duration)
-    frame.titleText:SetText(viewLabel .. " (" .. segLabel .. ") " .. durText)
+    frame.titleText:SetText(segInd .. " " .. viewLabel .. " " .. durText)
 end
 
 ---------------------------------------------------------------------------
@@ -296,11 +460,12 @@ function P.UpdateParsecWindow(frame)
     totalBar:SetPoint("TOPLEFT", frame.container, "TOPLEFT", 0, 0)
     totalBar:SetPoint("RIGHT", frame.container, "RIGHT", 0, 0)
     totalBar:SetHeight(barH)
-    totalBar:SetStatusBarColor(0.4, 0.4, 0.4, 0.85)
+    totalBar:SetStatusBarColor(0.25, 0.25, 0.3, 1)
     totalBar:SetValue(1)
+    totalBar.bg:SetVertexColor(0.08, 0.08, 0.1, 0.8)
     totalBar.rank:SetText("")
     totalBar.name:SetText("Total")
-    totalBar.name:SetTextColor(1, 1, 1)
+    totalBar.name:SetTextColor(0.85, 0.85, 0.85)
 
     -- Format total value based on view type
     if pc.viewType == "dps" or pc.viewType == "hps" then
@@ -333,7 +498,8 @@ function P.UpdateParsecWindow(frame)
         bar:SetHeight(barH)
 
         local cc = P.GetClassColor(entry.name)
-        bar:SetStatusBarColor(cc.r, cc.g, cc.b, 0.85)
+        bar:SetStatusBarColor(cc.r, cc.g, cc.b, 1)
+        bar.bg:SetVertexColor(cc.r * 0.15, cc.g * 0.15, cc.b * 0.15, 0.8)
 
         local pct = 0
         if topValue > 0 then pct = entry.value / topValue end
@@ -382,8 +548,9 @@ end
 -- Announce to chat
 ---------------------------------------------------------------------------
 
-function P.Announce(frame)
+function P.AnnounceToChannel(frame, channel)
     if not frame or not frame.pc then return end
+    if not channel then return end
     local pc = frame.pc
     local ds = P.dataStore
     if not ds then return end
@@ -392,16 +559,6 @@ function P.Announce(frame)
     if table.getn(sorted) == 0 then
         P.Print("Nothing to announce.")
         return
-    end
-
-    -- Determine channel
-    local channel = nil
-    if GetNumRaidMembers() > 0 then
-        channel = "RAID"
-    elseif GetNumPartyMembers() > 0 then
-        channel = "PARTY"
-    else
-        channel = "SAY"
     end
 
     local viewLabel = VIEW_LABELS[pc.viewType] or pc.viewType
@@ -425,6 +582,17 @@ function P.Announce(frame)
         end
         SendChatMessage(i .. ". " .. entry.name .. " - " .. valStr .. pctStr, channel)
     end
+end
+
+-- Auto-detect channel wrapper (for slash command usage)
+function P.Announce(frame)
+    local channel = "SAY"
+    if GetNumRaidMembers() > 0 then
+        channel = "RAID"
+    elseif GetNumPartyMembers() > 0 then
+        channel = "PARTY"
+    end
+    P.AnnounceToChannel(frame, channel)
 end
 
 ---------------------------------------------------------------------------
@@ -469,6 +637,7 @@ function P.ToggleWindow()
             P.UpdateParsecWindow(P.windows[i])
         end
     end
+    P.SaveWindowState()
 end
 
 function P.ShowAllWindows()
@@ -476,35 +645,36 @@ function P.ShowAllWindows()
         P.windows[i]:Show()
         P.UpdateParsecWindow(P.windows[i])
     end
+    P.SaveWindowState()
 end
 
 function P.HideAllWindows()
     for i = 1, table.getn(P.windows) do
         P.windows[i]:Hide()
     end
+    P.SaveWindowState()
 end
 
 ---------------------------------------------------------------------------
--- Create all windows
+-- Create a new window
 ---------------------------------------------------------------------------
 
-local TEX_PATH = "Interface\\AddOns\\Parsec\\textures\\"
-
-local numWindows = table.getn(WINDOW_DEFS)
-for idx = 1, numWindows do
-    local def = WINDOW_DEFS[idx]
+function P.CreateWindow(viewType, segment)
+    P._windowCounter = P._windowCounter + 1
+    local idx = P._windowCounter
 
     local f = CreateFrame("Frame", "ParsecWin" .. idx, UIParent)
     f:SetWidth(220)
     f:SetHeight(200)
-    f:SetPoint("CENTER", UIParent, "CENTER", (idx - (numWindows + 1) / 2) * 230, 0)
+    local numWin = table.getn(P.windows)
+    f:SetPoint("CENTER", UIParent, "CENTER", numWin * 20, numWin * -20)
     f:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+        bgFile = TEX_PATH .. "window-bg",
+        edgeFile = TEX_PATH .. "window-border",
+        tile = true, tileSize = 128, edgeSize = 16,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
-    f:SetBackdropColor(0, 0, 0, 0.8)
+    f:SetBackdropColor(1, 1, 1, 0.8)
     f:EnableMouse(true)
     f:SetMovable(true)
     f:SetResizable(true)
@@ -513,80 +683,51 @@ for idx = 1, numWindows do
     f:SetMaxResize(400, 600)
     f:Hide()
 
-    -- Capture loop variable for closures
-    local capturedDef = def
-
     f.pc = {
-        viewType = def.viewType,
-        segment = def.segment or "current",
-        title = def.title,
+        viewType = viewType or "damage",
+        segment = segment or "current",
         bars = {},
         scrollOffset = 0,
         updateTimer = 0,
     }
 
-    -- Title bar background (banner-style)
+    -- Title bar background
     f.titleBG = f:CreateTexture(nil, "ARTWORK")
     f.titleBG:SetTexture(TEX_PATH .. "banner")
     f.titleBG:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
     f.titleBG:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
     f.titleBG:SetHeight(20)
 
+    -- Close button [X] (right-most, red hover)
+    local closeBtn = CreateTitleBarButton(f, "X", nil, 16,
+        { r = 1, g = 0.3, b = 0.3 },
+        function() this:GetParent():Hide(); P.SaveWindowState() end)
+    closeBtn:SetPoint("RIGHT", f.titleBG, "RIGHT", -2, 0)
+
+    -- Announce button [>>] (left of close, cyan hover)
+    local annBtn = CreateTitleBarButton(f, ">>", "Announce to chat", 20,
+        { r = 0, g = 0.8, b = 1 },
+        function()
+            menuTargetFrame = this:GetParent()
+            ToggleDropDownMenu(1, nil, announceMenu, "cursor", 0, 0)
+        end)
+    annBtn:SetPoint("RIGHT", closeBtn, "LEFT", -2, 0)
+
+    -- Menu button [Menu] (left of announce, cyan hover)
+    local menuBtn = CreateTitleBarButton(f, "Menu", "View, Segment, Options", 36,
+        { r = 0, g = 0.8, b = 1 },
+        function()
+            menuTargetFrame = this:GetParent()
+            ToggleDropDownMenu(1, nil, mainMenu, "cursor", 0, 0)
+        end)
+    menuBtn:SetPoint("RIGHT", annBtn, "LEFT", -2, 0)
+
     -- Title text
     f.titleText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     f.titleText:SetPoint("LEFT", f.titleBG, "LEFT", 4, 0)
+    f.titleText:SetPoint("RIGHT", menuBtn, "LEFT", -4, 0)
     f.titleText:SetTextColor(0, 0.8, 1)
-    f.titleText:SetText(def.title .. " (Current) [0.0s]")
-
-    -- Title bar buttons (right-aligned, 14x14 each)
-    -- Close button (custom, not UIPanelCloseButton)
-    local closeBtn = CreateFrame("Button", nil, f)
-    closeBtn:SetWidth(14)
-    closeBtn:SetHeight(14)
-    closeBtn:SetPoint("RIGHT", f.titleBG, "RIGHT", -2, 0)
-    local closeTxt = closeBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    closeTxt:SetPoint("CENTER", closeBtn, "CENTER", 0, 0)
-    closeTxt:SetText("X")
-    closeTxt:SetTextColor(0.6, 0.6, 0.6)
-    closeBtn:SetScript("OnEnter", function()
-        closeTxt:SetTextColor(1, 0.3, 0.3)
-    end)
-    closeBtn:SetScript("OnLeave", function()
-        closeTxt:SetTextColor(0.6, 0.6, 0.6)
-    end)
-    closeBtn:SetScript("OnClick", function()
-        this:GetParent():Hide()
-    end)
-
-    -- Segment toggle button
-    local segBtn = CreateTitleButton(f, TEX_PATH .. "icon-segment-current", "Toggle: Current / Overall", function()
-        ToggleSegment(this:GetParent())
-    end)
-    segBtn:SetPoint("RIGHT", closeBtn, "LEFT", -2, 0)
-
-    -- View cycle button
-    local viewBtn = CreateTitleButton(f, TEX_PATH .. "icon-view-damage", "Cycle view: Damage > Healing > DPS > HPS", function()
-        CycleView(this:GetParent())
-    end)
-    viewBtn:SetPoint("RIGHT", segBtn, "LEFT", -2, 0)
-
-    -- Announce button
-    local annBtn = CreateTitleButton(f, TEX_PATH .. "icon-announce", "Announce to chat", function()
-        P.Announce(this:GetParent())
-    end)
-    annBtn:SetPoint("RIGHT", viewBtn, "LEFT", -2, 0)
-
-    -- Reset button
-    local rstBtn = CreateTitleButton(f, TEX_PATH .. "icon-reset", "Reset all data", function()
-        P.ResetData()
-    end)
-    rstBtn:SetPoint("RIGHT", annBtn, "LEFT", -2, 0)
-
-    -- Settings button
-    local optBtn = CreateTitleButton(f, TEX_PATH .. "icon-settings", "Open options", function()
-        P.ToggleOptions()
-    end)
-    optBtn:SetPoint("RIGHT", rstBtn, "LEFT", -2, 0)
+    f.titleText:SetJustifyH("LEFT")
 
     -- Bar container
     f.container = CreateFrame("Frame", nil, f)
@@ -610,6 +751,7 @@ for idx = 1, numWindows do
         local parent = this:GetParent()
         parent:StopMovingOrSizing()
         P.OnWindowResize(parent)
+        P.SaveWindowState()
     end)
 
     -- Drag to move
@@ -620,6 +762,7 @@ for idx = 1, numWindows do
     end)
     f:SetScript("OnMouseUp", function()
         this:StopMovingOrSizing()
+        P.SaveWindowState()
     end)
 
     -- Size changed
@@ -646,4 +789,89 @@ for idx = 1, numWindows do
     end)
 
     table.insert(P.windows, f)
+    P.UpdateWindowTitle(f)
+    return f
 end
+
+---------------------------------------------------------------------------
+-- Remove a window (permanently)
+---------------------------------------------------------------------------
+
+function P.RemoveWindow(frame)
+    if not frame then return end
+    if table.getn(P.windows) <= 1 then
+        frame:Hide()
+        return
+    end
+    for i = 1, table.getn(P.windows) do
+        if P.windows[i] == frame then
+            table.remove(P.windows, i)
+            break
+        end
+    end
+    frame:Hide()
+    P.SaveWindowState()
+end
+
+---------------------------------------------------------------------------
+-- Window State Persistence
+---------------------------------------------------------------------------
+
+function P.SaveWindowState()
+    if not ParsecCharDB then ParsecCharDB = {} end
+    local saved = {}
+    for i = 1, table.getn(P.windows) do
+        local f = P.windows[i]
+        local pc = f.pc
+        if pc then
+            local point, relativeTo, relativePoint, xOfs, yOfs = f:GetPoint(1)
+            table.insert(saved, {
+                viewType = pc.viewType,
+                segment = pc.segment,
+                width = f:GetWidth(),
+                height = f:GetHeight(),
+                point = point,
+                relativePoint = relativePoint,
+                x = xOfs,
+                y = yOfs,
+                visible = f:IsVisible() and true or false,
+            })
+        end
+    end
+    ParsecCharDB.windows = saved
+end
+
+function P.LoadWindowState()
+    if not ParsecCharDB or not ParsecCharDB.windows
+        or table.getn(ParsecCharDB.windows) == 0 then
+        -- No saved state: create defaults and show them
+        for i = 1, table.getn(WINDOW_DEFS) do
+            local f = P.CreateWindow(WINDOW_DEFS[i].viewType, WINDOW_DEFS[i].segment)
+            if f then f:Show() end
+        end
+        P.SaveWindowState()
+        return
+    end
+
+    for i = 1, table.getn(ParsecCharDB.windows) do
+        local ws = ParsecCharDB.windows[i]
+        local f = P.CreateWindow(ws.viewType, ws.segment)
+        if f then
+            f:ClearAllPoints()
+            f:SetWidth(ws.width or 220)
+            f:SetHeight(ws.height or 200)
+            f:SetPoint(ws.point or "CENTER", UIParent,
+                       ws.relativePoint or "CENTER",
+                       ws.x or 0, ws.y or 0)
+            P.OnWindowResize(f)
+            if ws.visible then
+                f:Show()
+            end
+        end
+    end
+end
+
+---------------------------------------------------------------------------
+-- LoadWindowState is called from bootstrap.lua after PLAYER_ENTERING_WORLD
+-- (P.Print does not work during file load time)
+---------------------------------------------------------------------------

@@ -82,26 +82,17 @@ end
 -- ============================================================
 -- WIDGET: Checkbox with icon
 -- ============================================================
-function F:CreateCheckbox(parent, label, iconKey, settingKey, yOffset)
+function F:CreateCheckbox(parent, label, settingKey, yOffset)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(F.CHECK_SIZE + 2)
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -yOffset)
     row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -yOffset)
 
-    -- Icon (16x16)
-    if iconKey and F.ICONS[iconKey] then
-        local icon = row:CreateTexture(nil, "ARTWORK")
-        icon:SetWidth(16)
-        icon:SetHeight(16)
-        icon:SetPoint("LEFT", row, "LEFT", 0, 0)
-        icon:SetTexture(F.ICONS[iconKey])
-    end
-
     -- Checkbox (custom styled)
     local cb = CreateFrame("CheckButton", nil, row)
     cb:SetWidth(F.CHECK_SIZE)
     cb:SetHeight(F.CHECK_SIZE)
-    cb:SetPoint("LEFT", row, "LEFT", 20, 0)
+    cb:SetPoint("LEFT", row, "LEFT", 0, 0)
 
     -- Checkbox background
     local cbBG = cb:CreateTexture(nil, "BACKGROUND")
@@ -201,7 +192,7 @@ function F:CreateSlider(parent, label, settingKey, minVal, maxVal, step, yOffset
 
     -- Thumb texture
     local thumb = slider:CreateTexture(nil, "OVERLAY")
-    thumb:SetWidth(10)
+    thumb:SetWidth(12)
     thumb:SetHeight(F.SLIDER_H + 4)
     thumb:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.8)
     slider:SetThumbTexture(thumb)
@@ -241,27 +232,55 @@ function F:CreateSmallButton(parent, text, width, yOffset, onClick)
 
     -- BG
     local bg = btn:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints(btn)
+    bg:SetPoint("TOPLEFT", btn, "TOPLEFT", 1, -1)
+    bg:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -1, 1)
     bg:SetTexture(F.DARK[1], F.DARK[2], F.DARK[3], 0.9)
 
-    -- Border
-    local border = btn:CreateTexture(nil, "BORDER")
-    border:SetPoint("TOPLEFT", btn, "TOPLEFT", -1, 1)
-    border:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 1, -1)
-    border:SetTexture(0.3, 0.3, 0.3, 1)
+    -- Border edges (matching title bar button style)
+    local bTop = btn:CreateTexture(nil, "BORDER")
+    bTop:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
+    bTop:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
+    bTop:SetHeight(1)
+    bTop:SetTexture(0.3, 0.3, 0.3, 0.8)
+
+    local bBot = btn:CreateTexture(nil, "BORDER")
+    bBot:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
+    bBot:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+    bBot:SetHeight(1)
+    bBot:SetTexture(0.3, 0.3, 0.3, 0.8)
+
+    local bL = btn:CreateTexture(nil, "BORDER")
+    bL:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
+    bL:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
+    bL:SetWidth(1)
+    bL:SetTexture(0.3, 0.3, 0.3, 0.8)
+
+    local bR = btn:CreateTexture(nil, "BORDER")
+    bR:SetPoint("TOPRIGHT", btn, "TOPRIGHT", 0, 0)
+    bR:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+    bR:SetWidth(1)
+    bR:SetTexture(0.3, 0.3, 0.3, 0.8)
 
     -- Text
     local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("CENTER", btn, "CENTER", 0, 0)
     label:SetText(text)
-    label:SetTextColor(1, 1, 1)
+    label:SetTextColor(0.9, 0.9, 0.9)
 
-    -- Highlight
+    -- Hover: cyan border
     btn:SetScript("OnEnter", function()
-        bg:SetTexture(F.CYAN[1] * 0.2, F.CYAN[2] * 0.2, F.CYAN[3] * 0.2, 0.9)
+        label:SetTextColor(1, 1, 1)
+        bTop:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        bBot:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        bL:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        bR:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
     end)
     btn:SetScript("OnLeave", function()
-        bg:SetTexture(F.DARK[1], F.DARK[2], F.DARK[3], 0.9)
+        label:SetTextColor(0.9, 0.9, 0.9)
+        bTop:SetTexture(0.3, 0.3, 0.3, 0.8)
+        bBot:SetTexture(0.3, 0.3, 0.3, 0.8)
+        bL:SetTexture(0.3, 0.3, 0.3, 0.8)
+        bR:SetTexture(0.3, 0.3, 0.3, 0.8)
     end)
 
     btn:SetScript("OnClick", onClick)
@@ -379,13 +398,13 @@ function F:CreateMainFrame()
     f:SetHeight(self.PANEL_H)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 50)
     f:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+        bgFile = "Interface\\AddOns\\Parsec\\textures\\window-bg",
+        edgeFile = "Interface\\AddOns\\Parsec\\textures\\window-border",
+        tile = true, tileSize = 128, edgeSize = 16,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
-    f:SetBackdropColor(self.BG_MAIN[1], self.BG_MAIN[2], self.BG_MAIN[3], self.BG_MAIN[4])
-    f:SetBackdropBorderColor(0.2, 0.2, 0.2, 1)
+    f:SetBackdropColor(1, 1, 1, self.BG_MAIN[4])
+    f:SetBackdropBorderColor(1, 1, 1, 1)
     f:SetFrameStrata("DIALOG")
     f:SetToplevel(true)
     f:SetMovable(true)
@@ -495,10 +514,11 @@ function F:CreateSidebar()
 
     -- Category definitions
     local categories = {
-        { name = "General",    icon = self.ICONS.general },
-        { name = "Windows",    icon = self.ICONS.windows },
+        { name = "Bars",       icon = self.ICONS.general },
+        { name = "Window",     icon = self.ICONS.windows },
         { name = "Automation", icon = self.ICONS.automation },
         { name = "About",      icon = self.ICONS.about },
+        { name = "Debug",      icon = self.ICONS.about },
     }
 
     local btnH = 28
@@ -635,79 +655,70 @@ function F:BuildPanel(idx)
     self.panels[idx].contentFrame = panel
     self.panels[idx].controls = {}
 
-    if idx == 1 then self:BuildGeneralPanel(panel, idx)
-    elseif idx == 2 then self:BuildWindowsPanel(panel, idx)
+    if idx == 1 then self:BuildBarsPanel(panel, idx)
+    elseif idx == 2 then self:BuildWindowPanel(panel, idx)
     elseif idx == 3 then self:BuildAutomationPanel(panel, idx)
     elseif idx == 4 then self:BuildAboutPanel(panel, idx)
+    elseif idx == 5 then self:BuildDebugPanel(panel, idx)
     end
 end
 
 -- ============================================================
--- GENERAL PANEL
+-- BARS PANEL (barHeight, barSpacing, barTexture, mergePets)
 -- ============================================================
-function F:BuildGeneralPanel(panel, idx)
+function F:BuildBarsPanel(panel, idx)
     local y = self.PADDING
     local ctrls = self.panels[idx].controls
 
-    y = self:CreateSectionHeader(panel, "Tracking", y)
+    y = self:CreateSectionHeader(panel, "Bar Appearance", y)
 
-    local cb1, y1 = self:CreateCheckbox(panel, "Merge pet damage with owner", "merge", "mergePets", y)
-    ctrls.mergePets = cb1.checkbox
+    local sl1, y1 = self:CreateSlider(panel, "Bar Height:", "barHeight", 8, 24, 1, y, false)
+    ctrls.barHeight = sl1
     y = y1
 
-    local cb2, y2 = self:CreateCheckbox(panel, "Track all units (not just group)", "group", "trackAll", y)
-    ctrls.trackAll = cb2.checkbox
-    y = y2
-
-    y = y + 4
-    y = self:CreateSectionHeader(panel, "Appearance", y)
-
-    local cb3, y3 = self:CreateCheckbox(panel, "Use pastel class colors", "palette", "pastelColors", y)
-    ctrls.pastelColors = cb3.checkbox
-    y = y3
-
-    local cb4, y4 = self:CreateCheckbox(panel, "Show window backdrop", "backdrop", "showBackdrop", y)
-    ctrls.showBackdrop = cb4.checkbox
-    y = y4
-
-    y = y + 4
-
-    local sl1, y5 = self:CreateSlider(panel, "Bar Height:", "barHeight", 8, 24, 1, y, false)
-    ctrls.barHeight = sl1
-    y = y5
-
-    local sl2, y6 = self:CreateSlider(panel, "Bar Spacing:", "barSpacing", 0, 4, 1, y, false)
+    local sl2, y2 = self:CreateSlider(panel, "Bar Spacing:", "barSpacing", 0, 4, 1, y, false)
     ctrls.barSpacing = sl2
-    y = y6
-
-    local sl3, y7 = self:CreateSlider(panel, "Window Opacity:", "bgOpacity", 0.3, 1.0, 0.05, y, true)
-    ctrls.bgOpacity = sl3
-    y = y7
+    y = y2
 
     y = y + 2
 
-    local tp1, y8 = self:CreateTexturePicker(panel, "Bar Texture:", "barTexture", y)
+    local tp1, y3 = self:CreateTexturePicker(panel, "Bar Texture:", "barTexture", y)
     ctrls.barTexture = tp1
-    y = y8
+    y = y3
+
+    y = y + 4
+    y = self:CreateSectionHeader(panel, "Data", y)
+
+    local cb2, y5 = self:CreateCheckbox(panel, "Merge pet damage with owner", "mergePets", y)
+    ctrls.mergePets = cb2.checkbox
+    y = y5
 end
 
 -- ============================================================
--- WINDOWS PANEL
+-- WINDOW PANEL (bgOpacity, showBackdrop, lockWindows, Reset buttons)
 -- ============================================================
-function F:BuildWindowsPanel(panel, idx)
+function F:BuildWindowPanel(panel, idx)
     local y = self.PADDING
     local ctrls = self.panels[idx].controls
 
-    y = self:CreateSectionHeader(panel, "Window Options", y)
+    y = self:CreateSectionHeader(panel, "Window Settings", y)
 
-    local cb1, y1 = self:CreateCheckbox(panel, "Lock window positions", "lock", "lockWindows", y)
-    ctrls.lockWindows = cb1.checkbox
+    local cb1, y1 = self:CreateCheckbox(panel, "Show window backdrop", "showBackdrop", y)
+    ctrls.showBackdrop = cb1.checkbox
     y = y1
 
-    y = y + 8
+    local cb2, y2 = self:CreateCheckbox(panel, "Lock window positions", "lockWindows", y)
+    ctrls.lockWindows = cb2.checkbox
+    y = y2
+
+    local sl1, y3 = self:CreateSlider(panel, "Background Opacity:", "bgOpacity", 0.3, 1.0, 0.05, y, true)
+    ctrls.bgOpacity = sl1
+    y = y3
+
+    y = y + 4
     y = self:CreateSectionHeader(panel, "Actions", y)
 
-    local _, y2 = self:CreateSmallButton(panel, "Reset Positions", 130, y, function()
+    local _, y4 = self:CreateSmallButton(panel, "Reset Positions", 130, y, function()
         local numWin = table.getn(P.windows)
         for i = 1, numWin do
             local w = P.windows[i]
@@ -719,22 +730,22 @@ function F:BuildWindowsPanel(panel, idx)
         end
         P.Print("Window positions reset.")
     end)
-    y = y2
+    y = y4
 
-    local _, y3 = self:CreateSmallButton(panel, "Reset All Data", 130, y, function()
+    local _, y5 = self:CreateSmallButton(panel, "Reset All Data", 130, y, function()
         if P.dataStore then
             P.dataStore:ResetAll()
         end
     end)
-    y = y3
+    y = y5
 
-    local _, y4 = self:CreateSmallButton(panel, "Reset Current Segment", 150, y, function()
+    local _, y6 = self:CreateSmallButton(panel, "Reset Current Segment", 150, y, function()
         if P.dataStore then
             P.dataStore:ResetCurrent()
             P.Print("Current segment reset.")
         end
     end)
-    y = y4
+    y = y6
 end
 
 -- ============================================================
@@ -746,20 +757,24 @@ function F:BuildAutomationPanel(panel, idx)
 
     y = self:CreateSectionHeader(panel, "Combat Automation", y)
 
-    local cb1, y1 = self:CreateCheckbox(panel, "Auto-show windows on combat start", "eye", "autoShow", y)
+    local cb1, y1 = self:CreateCheckbox(panel, "Auto-show windows on combat start", "autoShow", y)
     ctrls.autoShow = cb1.checkbox
     y = y1
 
-    local cb2, y2 = self:CreateCheckbox(panel, "Auto-hide windows after combat", "eyeClosed", "autoHide", y)
+    local cb2, y2 = self:CreateCheckbox(panel, "Auto-hide windows after combat", "autoHide", y)
     ctrls.autoHide = cb2.checkbox
     y = y2
 
     y = y + 8
     y = self:CreateSectionHeader(panel, "UI Elements", y)
 
-    local cb3, y3 = self:CreateCheckbox(panel, "Show minimap button", "minimap", "showMinimap", y)
+    local cb3, y3 = self:CreateCheckbox(panel, "Show minimap button", "showMinimap", y)
     ctrls.showMinimap = cb3.checkbox
     y = y3
+
+    local cb4, y4 = self:CreateCheckbox(panel, "Track all units (not just group)", "trackAll", y)
+    ctrls.trackAll = cb4.checkbox
+    y = y4
 end
 
 -- ============================================================
@@ -783,7 +798,6 @@ function F:BuildAboutPanel(panel, idx)
         "  /parsec minimap - Toggle minimap",
         "  /parsec debug - Debug mode",
         "  /parsec pets - Pet owner cache",
-        "  /parsec drains - Drain summary",
         "  /parsec stats - Statistics",
         "  /parsec help - All commands",
     }
@@ -794,6 +808,198 @@ function F:BuildAboutPanel(panel, idx)
         text:SetText(lines[i])
         text:SetTextColor(0.8, 0.8, 0.8)
         y = y + 14
+    end
+end
+
+-- ============================================================
+-- DEBUG PANEL (message log for copy-paste)
+-- ============================================================
+function F:BuildDebugPanel(panel, idx)
+    local y = self.PADDING
+    local ctrls = self.panels[idx].controls
+
+    y = self:CreateSectionHeader(panel, "Message Log", y)
+
+    -- Button row
+    local btnW = 70
+    local btnSpacing = 6
+
+    local btnSelect, y1 = self:CreateSmallButton(panel, "Select All", btnW, y, function()
+        if F.debugEditBox then
+            F.debugEditBox:SetFocus()
+            F.debugEditBox:HighlightText()
+        end
+    end)
+    y1 = y  -- keep same y, place buttons horizontally
+
+    local btnClear = CreateFrame("Button", nil, panel)
+    btnClear:SetWidth(btnW)
+    btnClear:SetHeight(self.BTN_H)
+    btnClear:SetPoint("LEFT", btnSelect, "RIGHT", btnSpacing, 0)
+
+    -- BG + border for Clear button (matching CreateSmallButton style)
+    local clBG = btnClear:CreateTexture(nil, "BACKGROUND")
+    clBG:SetPoint("TOPLEFT", btnClear, "TOPLEFT", 1, -1)
+    clBG:SetPoint("BOTTOMRIGHT", btnClear, "BOTTOMRIGHT", -1, 1)
+    clBG:SetTexture(self.DARK[1], self.DARK[2], self.DARK[3], 0.9)
+    local clT = btnClear:CreateTexture(nil, "BORDER")
+    clT:SetPoint("TOPLEFT", btnClear, "TOPLEFT", 0, 0)
+    clT:SetPoint("TOPRIGHT", btnClear, "TOPRIGHT", 0, 0)
+    clT:SetHeight(1)
+    clT:SetTexture(0.3, 0.3, 0.3, 0.8)
+    local clB = btnClear:CreateTexture(nil, "BORDER")
+    clB:SetPoint("BOTTOMLEFT", btnClear, "BOTTOMLEFT", 0, 0)
+    clB:SetPoint("BOTTOMRIGHT", btnClear, "BOTTOMRIGHT", 0, 0)
+    clB:SetHeight(1)
+    clB:SetTexture(0.3, 0.3, 0.3, 0.8)
+    local clL = btnClear:CreateTexture(nil, "BORDER")
+    clL:SetPoint("TOPLEFT", btnClear, "TOPLEFT", 0, 0)
+    clL:SetPoint("BOTTOMLEFT", btnClear, "BOTTOMLEFT", 0, 0)
+    clL:SetWidth(1)
+    clL:SetTexture(0.3, 0.3, 0.3, 0.8)
+    local clR = btnClear:CreateTexture(nil, "BORDER")
+    clR:SetPoint("TOPRIGHT", btnClear, "TOPRIGHT", 0, 0)
+    clR:SetPoint("BOTTOMRIGHT", btnClear, "BOTTOMRIGHT", 0, 0)
+    clR:SetWidth(1)
+    clR:SetTexture(0.3, 0.3, 0.3, 0.8)
+    local clLabel = btnClear:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    clLabel:SetPoint("CENTER", btnClear, "CENTER", 0, 0)
+    clLabel:SetText("Clear")
+    clLabel:SetTextColor(0.9, 0.9, 0.9)
+    btnClear:SetScript("OnEnter", function()
+        clLabel:SetTextColor(1, 1, 1)
+        clT:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        clB:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        clL:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        clR:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+    end)
+    btnClear:SetScript("OnLeave", function()
+        clLabel:SetTextColor(0.9, 0.9, 0.9)
+        clT:SetTexture(0.3, 0.3, 0.3, 0.8)
+        clB:SetTexture(0.3, 0.3, 0.3, 0.8)
+        clL:SetTexture(0.3, 0.3, 0.3, 0.8)
+        clR:SetTexture(0.3, 0.3, 0.3, 0.8)
+    end)
+    btnClear:SetScript("OnClick", function()
+        P.messageLog = {}
+        F:RefreshDebugLog()
+    end)
+
+    local btnRefresh = CreateFrame("Button", nil, panel)
+    btnRefresh:SetWidth(btnW)
+    btnRefresh:SetHeight(self.BTN_H)
+    btnRefresh:SetPoint("LEFT", btnClear, "RIGHT", btnSpacing, 0)
+
+    -- BG + border for Refresh button
+    local rfBG = btnRefresh:CreateTexture(nil, "BACKGROUND")
+    rfBG:SetPoint("TOPLEFT", btnRefresh, "TOPLEFT", 1, -1)
+    rfBG:SetPoint("BOTTOMRIGHT", btnRefresh, "BOTTOMRIGHT", -1, 1)
+    rfBG:SetTexture(self.DARK[1], self.DARK[2], self.DARK[3], 0.9)
+    local rfT = btnRefresh:CreateTexture(nil, "BORDER")
+    rfT:SetPoint("TOPLEFT", btnRefresh, "TOPLEFT", 0, 0)
+    rfT:SetPoint("TOPRIGHT", btnRefresh, "TOPRIGHT", 0, 0)
+    rfT:SetHeight(1)
+    rfT:SetTexture(0.3, 0.3, 0.3, 0.8)
+    local rfB = btnRefresh:CreateTexture(nil, "BORDER")
+    rfB:SetPoint("BOTTOMLEFT", btnRefresh, "BOTTOMLEFT", 0, 0)
+    rfB:SetPoint("BOTTOMRIGHT", btnRefresh, "BOTTOMRIGHT", 0, 0)
+    rfB:SetHeight(1)
+    rfB:SetTexture(0.3, 0.3, 0.3, 0.8)
+    local rfL = btnRefresh:CreateTexture(nil, "BORDER")
+    rfL:SetPoint("TOPLEFT", btnRefresh, "TOPLEFT", 0, 0)
+    rfL:SetPoint("BOTTOMLEFT", btnRefresh, "BOTTOMLEFT", 0, 0)
+    rfL:SetWidth(1)
+    rfL:SetTexture(0.3, 0.3, 0.3, 0.8)
+    local rfR = btnRefresh:CreateTexture(nil, "BORDER")
+    rfR:SetPoint("TOPRIGHT", btnRefresh, "TOPRIGHT", 0, 0)
+    rfR:SetPoint("BOTTOMRIGHT", btnRefresh, "BOTTOMRIGHT", 0, 0)
+    rfR:SetWidth(1)
+    rfR:SetTexture(0.3, 0.3, 0.3, 0.8)
+    local rfLabel = btnRefresh:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    rfLabel:SetPoint("CENTER", btnRefresh, "CENTER", 0, 0)
+    rfLabel:SetText("Refresh")
+    rfLabel:SetTextColor(0.9, 0.9, 0.9)
+    btnRefresh:SetScript("OnEnter", function()
+        rfLabel:SetTextColor(1, 1, 1)
+        rfT:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        rfB:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        rfL:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+        rfR:SetTexture(F.CYAN[1], F.CYAN[2], F.CYAN[3], 0.6)
+    end)
+    btnRefresh:SetScript("OnLeave", function()
+        rfLabel:SetTextColor(0.9, 0.9, 0.9)
+        rfT:SetTexture(0.3, 0.3, 0.3, 0.8)
+        rfB:SetTexture(0.3, 0.3, 0.3, 0.8)
+        rfL:SetTexture(0.3, 0.3, 0.3, 0.8)
+        rfR:SetTexture(0.3, 0.3, 0.3, 0.8)
+    end)
+    btnRefresh:SetScript("OnClick", function()
+        F:RefreshDebugLog()
+    end)
+
+    -- Hint text
+    local hint = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    hint:SetPoint("LEFT", btnRefresh, "RIGHT", btnSpacing + 2, 0)
+    hint:SetText("|cff888888Ctrl+A, Ctrl+C to copy|r")
+
+    y = y + self.BTN_H + self.SPACING + 2
+
+    -- ScrollFrame for the log
+    local scrollFrame = CreateFrame("ScrollFrame", "ParsecDebugScroll", panel, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -y)
+    scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -24, 0)
+
+    -- Dark background behind scroll area
+    local scrollBG = panel:CreateTexture(nil, "BACKGROUND")
+    scrollBG:SetPoint("TOPLEFT", scrollFrame, "TOPLEFT", -2, 2)
+    scrollBG:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
+    scrollBG:SetTexture(0.03, 0.03, 0.05, 0.9)
+
+    -- EditBox as scroll child
+    local editBox = CreateFrame("EditBox", "ParsecDebugEditBox", scrollFrame)
+    editBox:SetWidth(scrollFrame:GetWidth() or 320)
+    editBox:SetFontObject(GameFontNormalSmall)
+    editBox:SetTextColor(0.8, 0.8, 0.8)
+    editBox:SetMultiLine(true)
+    editBox:SetAutoFocus(false)
+    editBox:EnableMouse(true)
+    editBox:SetMaxLetters(99999)
+    editBox:SetText("")
+    editBox:SetScript("OnEscapePressed", function()
+        this:ClearFocus()
+    end)
+
+    scrollFrame:SetScrollChild(editBox)
+    self.debugEditBox = editBox
+    self.debugScrollFrame = scrollFrame
+end
+
+function F:RefreshDebugLog()
+    if not self.debugEditBox then return end
+
+    local log = P.messageLog
+    local text = ""
+    for i = 1, table.getn(log) do
+        if i > 1 then text = text .. "\n" end
+        text = text .. log[i]
+    end
+
+    self.debugEditBox:SetText(text)
+
+    -- Adjust height for scroll
+    local numLines = table.getn(log)
+    local lineH = 14
+    local h = numLines * lineH
+    if h < 100 then h = 100 end
+    self.debugEditBox:SetHeight(h)
+
+    -- Scroll to bottom
+    if self.debugScrollFrame then
+        self.debugScrollFrame:UpdateScrollChildRect()
+        local maxScroll = self.debugScrollFrame:GetVerticalScrollRange()
+        if maxScroll and maxScroll > 0 then
+            self.debugScrollFrame:SetVerticalScroll(maxScroll)
+        end
     end
 end
 
@@ -833,6 +1039,11 @@ function F:RefreshPanel(idx)
     -- Texture picker
     if ctrls.barTexture and ctrls.barTexture.UpdateDisplay then
         ctrls.barTexture.UpdateDisplay()
+    end
+
+    -- Debug log
+    if idx == 5 then
+        self:RefreshDebugLog()
     end
 end
 

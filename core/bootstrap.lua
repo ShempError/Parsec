@@ -120,33 +120,13 @@ SlashCmdList["PARSEC"] = function(msg)
             pp.Print("  " .. (petName or guid) .. " -> " .. owner)
             count = count + 1
         end
-        pp.Print("--- Totem Owner Cache ---")
-        for spellName, owner in pairs(pp.totemOwners) do
-            pp.Print("  " .. spellName .. " -> " .. owner)
+        pp.Print("--- Totem Cast Log ---")
+        for i = 1, table.getn(pp.totemCastLog) do
+            local entry = pp.totemCastLog[i]
+            pp.Print("  " .. (entry.caster or "?") .. " cast " .. (entry.spell or "?") .. (entry.totemGuid and (" -> " .. entry.totemGuid) or ""))
             count = count + 1
         end
         pp.Print("Total cached: " .. count)
-
-    elseif msg == "drains" then
-        -- Show mana drain summary
-        if not pp.dataStore then
-            pp.Print("No data store.")
-            return
-        end
-        pp.Print("--- Resource Drains Received ---")
-        local count = 0
-        for name, data in pairs(pp.dataStore.current.players) do
-            if data.drain_received and data.drain_received > 0 then
-                pp.Print("  " .. name .. ": " .. data.drain_received .. " total drained")
-                for spell, info in pairs(data.drain_spells) do
-                    pp.Print("    " .. spell .. ": " .. info.total .. " " .. (info.resource or "Mana") .. " (" .. info.hits .. "x, from " .. (info.source or "?") .. ")")
-                end
-                count = count + 1
-            end
-        end
-        if count == 0 then
-            pp.Print("  No drains recorded.")
-        end
 
     elseif msg == "missed" then
         -- Show unhandled/missed CHAT_MSG events
@@ -209,7 +189,6 @@ SlashCmdList["PARSEC"] = function(msg)
         pp.Print("/parsec debug - Toggle debug (pet attribution only)")
         pp.Print("/parsec verbose - Toggle verbose (raw event args)")
         pp.Print("/parsec pets - Show pet/totem owner cache")
-        pp.Print("/parsec drains - Show resource drains received")
         pp.Print("/parsec missed - Show unhandled CHAT_MSG events")
         pp.Print("/parsec stats - Show statistics")
         pp.Print("/parsec diag - Load diagnostics")
@@ -262,13 +241,14 @@ initFrame:SetScript("OnEvent", function()
     pp.ScanGroupPets()
     pp.ScanGroupMembers()
 
+    -- Create windows from saved state (must happen here, not at file load time,
+    -- because P.Print doesn't work before PLAYER_ENTERING_WORLD)
+    pp.LoadWindowState()
+
     -- Apply settings (opacity, lock, minimap visibility)
     pp.ApplySettings()
 
-    -- Show all windows
-    if table.getn(pp.windows) > 0 then
-        pp.ShowAllWindows()
-    else
+    if table.getn(pp.windows) == 0 then
         pp.Print("|cffff4444No windows created! Check window.lua|r")
     end
 end)

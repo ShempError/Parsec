@@ -19,8 +19,6 @@ local function NewPlayerEntry()
         heal_effective = 0,
         heal_overheal = 0,
         heal_spells = {},
-        drain_received = 0,
-        drain_spells = {},
         first_action = 0,
         last_action = 0,
     }
@@ -107,30 +105,6 @@ local function ApplyHeal(seg, source, spellName, amount, overheal, crit)
 end
 
 ---------------------------------------------------------------------------
--- Internal: apply drain to a single segment
----------------------------------------------------------------------------
-
-local function ApplyDrain(seg, target, source, spellName, amount, resource)
-    local p = seg.players[target]
-    if not p then
-        p = NewPlayerEntry()
-        seg.players[target] = p
-    end
-    local now = GetTime()
-
-    p.drain_received = p.drain_received + amount
-    if p.first_action == 0 then p.first_action = now end
-    p.last_action = now
-
-    if not p.drain_spells[spellName] then
-        p.drain_spells[spellName] = { total = 0, hits = 0, resource = resource or "Mana", source = source or "?" }
-    end
-    local sp = p.drain_spells[spellName]
-    sp.total = sp.total + amount
-    sp.hits = sp.hits + 1
-end
-
----------------------------------------------------------------------------
 -- Public: Add damage (writes to both segments)
 ---------------------------------------------------------------------------
 
@@ -151,13 +125,35 @@ function DS:AddHeal(source, target, spellName, amount, overheal, crit)
 end
 
 ---------------------------------------------------------------------------
--- Public: Add drain (writes to both segments)
+-- Get effective duration for a segment
+-- Uses combatState timer, falls back to player activity timestamps
+-- (handles /reload during combat where combatState resets to 0)
 ---------------------------------------------------------------------------
 
-function DS:AddDrain(target, source, spellName, amount, resource)
-    if not target or not spellName then return end
-    ApplyDrain(self.current, target, source, spellName, amount, resource)
-    ApplyDrain(self.overall, target, source, spellName, amount, resource)
+function DS:GetDuration(segment)
+    local seg = self.current
+    if segment == "overall" then seg = self.overall end
+
+    local duration = P.combatState:GetDuration(segment)
+
+    if duration < 1 then
+        local minFirst, maxLast
+        for name, data in pairs(seg.players) do
+            if string.sub(name, 1, 2) ~= "0x" and data.first_action > 0 then
+                if not minFirst or data.first_action < minFirst then
+                    minFirst = data.first_action
+                end
+                if data.last_action > 0 and (not maxLast or data.last_action > maxLast) then
+                    maxLast = data.last_action
+                end
+            end
+        end
+        if minFirst and maxLast then
+            duration = maxLast - minFirst
+        end
+    end
+    if duration < 1 then duration = 1 end
+    return duration
 end
 
 ---------------------------------------------------------------------------
@@ -170,35 +166,39 @@ function DS:GetSorted(viewType, segment)
     local seg = self.current
     if segment == "overall" then seg = self.overall end
 
-    local duration = P.combatState:GetDuration(segment)
-    if duration < 1 then duration = 1 end
+    local duration = self:GetDuration(segment)
 
     local sorted = {}
     local raidTotal = 0
 
     for name, data in pairs(seg.players) do
-        local value = 0
-        if viewType == "damage" then
-            value = data.damage_total
-        elseif viewType == "healing" then
-            value = data.heal_total
-        elseif viewType == "effheal" then
-            value = data.heal_effective
-        elseif viewType == "drains" then
-            value = data.drain_received
-        elseif viewType == "dps" then
-            value = data.damage_total / duration
-        elseif viewType == "hps" then
-            value = data.heal_effective / duration
-        end
+        -- Skip GUID entries (unresolved names like "0x00000000...")
+        if string.sub(name, 1, 2) ~= "0x" then
+            local value = 0
+            if viewType == "damage" then
+                value = data.damage_total
+            elseif viewType == "healing" then
+                value = data.heal_total
+            elseif viewType == "effheal" then
+                value = data.heal_effective
+            elseif viewType == "dps" then
+                local playerDur = data.last_action - data.first_action
+                if playerDur < 1 then playerDur = duration end
+                value = data.damage_total / playerDur
+            elseif viewType == "hps" then
+                local playerDur = data.last_action - data.first_action
+                if playerDur < 1 then playerDur = duration end
+                value = data.heal_effective / playerDur
+            end
 
-        if value > 0 then
-            raidTotal = raidTotal + value
-            table.insert(sorted, {
-                name = name,
-                value = value,
-                raw = data,
-            })
+            if value > 0 then
+                raidTotal = raidTotal + value
+                table.insert(sorted, {
+                    name = name,
+                    value = value,
+                    raw = data,
+                })
+            end
         end
     end
 

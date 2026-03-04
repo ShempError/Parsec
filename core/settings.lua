@@ -67,13 +67,31 @@ P.CLASS_COLORS_PASTEL = {
 
 function P.GetClassColor(name)
     local class = P.dataStore and P.dataStore.classes and P.dataStore.classes[name]
+
+    -- Fallback: try UnitClass for group members not yet cached
+    if not class and name then
+        local units = { "player", "target", "party1", "party2", "party3", "party4" }
+        for i = 1, table.getn(units) do
+            if UnitName(units[i]) == name then
+                local _, uClass = UnitClass(units[i])
+                if uClass then
+                    class = uClass
+                    if P.dataStore and P.dataStore.classes then
+                        P.dataStore.classes[name] = class
+                    end
+                end
+                break
+            end
+        end
+    end
+
     if not class then
-        return { r = 0.6, g = 0.6, b = 0.6 }
+        return P.HashColor(name)
     end
     if P.settings.pastelColors and P.CLASS_COLORS_PASTEL[class] then
         return P.CLASS_COLORS_PASTEL[class]
     end
-    return P.CLASS_COLORS[class] or { r = 0.6, g = 0.6, b = 0.6 }
+    return P.CLASS_COLORS[class] or P.HashColor(name)
 end
 
 ---------------------------------------------------------------------------
@@ -128,8 +146,8 @@ function P.ApplySettings()
 
         -- Background opacity + backdrop visibility
         if s.showBackdrop then
-            f:SetBackdropColor(0, 0, 0, s.bgOpacity)
-            f:SetBackdropBorderColor(0.3, 0.3, 0.3, s.bgOpacity)
+            f:SetBackdropColor(1, 1, 1, s.bgOpacity)
+            f:SetBackdropBorderColor(1, 1, 1, s.bgOpacity)
         else
             f:SetBackdropColor(0, 0, 0, 0)
             f:SetBackdropBorderColor(0, 0, 0, 0)

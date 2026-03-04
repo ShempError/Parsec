@@ -4,7 +4,7 @@
 Parsec = {}
 local P = Parsec
 
-P.VERSION = "0.2.0"
+P.VERSION = "0.3.0"
 P._loadedFiles = { "utils" }
 
 -- Class colors (same as RAID_CLASS_COLORS but guaranteed available)
@@ -71,17 +71,38 @@ function P.HashColor(name)
     return { r = r, g = g, b = b }
 end
 
--- Print to default chat frame
+-- Message log buffer for debug panel (copy-paste)
+P.messageLog = {}
+P.MESSAGE_LOG_MAX = 500
+
+local function StripColors(str)
+    if not str then return "" end
+    str = string.gsub(str, "|c%x%x%x%x%x%x%x%x", "")
+    str = string.gsub(str, "|r", "")
+    return str
+end
+
+-- Print to default chat frame + log buffer
 function P.Print(msg)
+    local text = msg or "nil"
     if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[Parsec]|r " .. (msg or "nil"))
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[Parsec]|r " .. text)
+    end
+    table.insert(P.messageLog, StripColors(text))
+    if table.getn(P.messageLog) > P.MESSAGE_LOG_MAX then
+        table.remove(P.messageLog, 1)
     end
 end
 
--- Print debug message (only when debug mode on)
+-- Debug message: always logged, only shown in chat when debug mode on
 function P.Debug(msg)
-    if P.debugMode then
-        P.Print("|cff888888" .. (msg or "nil") .. "|r")
+    local text = msg or "nil"
+    table.insert(P.messageLog, "[DBG] " .. StripColors(text))
+    if table.getn(P.messageLog) > P.MESSAGE_LOG_MAX then
+        table.remove(P.messageLog, 1)
+    end
+    if P.debugMode and DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[Parsec]|r |cff888888" .. text .. "|r")
     end
 end
 

@@ -136,13 +136,13 @@ local MISS_TYPES = {
     [11] = "REFLECT",
 }
 
--- Check if hitInfo bitmask has critical hit flag (HITINFO_CRITICALHIT = 0x200)
--- Bitmask values: 0x2=AFFECTS_VICTIM, 0x10=MISS, 0x200=CRITICALHIT
+-- Check if hitInfo bitmask has critical hit flag (HITINFO_CRITICALHIT = 0x2)
+-- Bitmask bit 1 (value 2): critical hit
 local function IsCritHit(hitInfo)
     if not hitInfo then return false end
     hitInfo = tonumber(hitInfo) or 0
-    -- Check bit 9 (0x200 = 512) in Lua 5.0 without bit lib
-    return math.mod(math.floor(hitInfo / 512), 2) == 1
+    -- Check bit 1 (0x2) in Lua 5.0 without bit lib
+    return math.mod(math.floor(hitInfo / 2), 2) == 1
 end
 
 ---------------------------------------------------------------------------
@@ -679,68 +679,6 @@ local function OnDamageShield()
     bus:Fire("DAMAGE", data)
 end
 
--- CHAT_MSG_SPELL_PERIODIC_*_DAMAGE — Resource Drain parsing
--- These events also fire for regular DoTs (which Nampower handles).
--- We ONLY parse drain patterns here, ignoring DoT damage lines.
--- English client format:
---   Self:  "Obsidian Nullifier 's Drain Mana drains 500 Mana from you. Obsidian Nullifier gains 1000 Mana."
---   Other: "Obsidian Nullifier 's Drain Mana drains 500 Mana from PlayerName. Obsidian Nullifier gains 1000 Mana."
-local function OnPeriodicDamage()
-    local msg = arg1
-    if not msg then return end
-
-    -- Only match drain patterns (not regular DoT damage)
-    local source, spellName, amountStr, resource, target
-
-    -- Self: "X 's Y drains Z Mana from you."
-    local _, _, src, spell, amt, res = string.find(msg,
-        "(.+) 's (.+) drains (%d+) (%a+) from you%.")
-    if src then
-        source = src
-        spellName = spell
-        amountStr = amt
-        resource = res
-        target = UnitName("player")
-    else
-        -- Other: "X 's Y drains Z Mana from Player."
-        local _, _, src2, spell2, amt2, res2, tgt2 = string.find(msg,
-            "(.+) 's (.+) drains (%d+) (%a+) from ([^%.]+)%.")
-        if src2 then
-            source = src2
-            spellName = spell2
-            amountStr = amt2
-            resource = res2
-            target = tgt2
-        end
-    end
-
-    -- Not a drain pattern
-    if not target or not amountStr then
-        -- Regular DoT ticks ("suffer", "damage") are handled by Nampower — skip those
-        -- Anything else is an unknown pattern — log as missed
-        if not string.find(msg, "suffer") and not string.find(msg, "damage")
-            and not string.find(msg, "absorb") and not string.find(msg, "resist") then
-            LogMissedEvent(event, msg)
-        end
-        return
-    end
-
-    local amount = tonumber(amountStr) or 0
-    if amount <= 0 then return end
-
-    local data = {
-        time = GetTime(),
-        type = "DRAIN",
-        source = source or "?",
-        target = target,
-        spellName = spellName or "Drain",
-        amount = amount,
-        resource = resource or "Mana",
-    }
-
-    bus:Fire("DRAIN", data)
-end
-
 -- UNIT_DIED (Nampower: arg1=guid)
 local function OnUnitDied()
     local guid = arg1
@@ -839,12 +777,6 @@ bus:RegisterEvent("UNIT_PET")
 bus:RegisterEvent("CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF")
 bus:RegisterEvent("CHAT_MSG_SPELL_DAMAGESHIELDS_ON_OTHERS")
 
--- Resource drain events (Mana Drain, Mana Burn etc. — not in Nampower)
--- These fire for periodic drain ticks AND regular DoTs, so we filter for drain patterns only
-bus:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_SELF_DAMAGE")
-bus:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_PARTY_DAMAGE")
-bus:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_FRIENDLYPLAYER_DAMAGE")
-
 -- Combat state events (forwarded to combat-state module)
 bus:RegisterEvent("PLAYER_REGEN_DISABLED")
 bus:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -912,12 +844,6 @@ bus:SetScript("OnEvent", function()
         or event == "CHAT_MSG_SPELL_DAMAGESHIELDS_ON_OTHERS" then
         OnDamageShield()
 
-    -- Resource drains (Mana Drain, etc.) — only drain patterns, DoTs ignored
-    elseif event == "CHAT_MSG_SPELL_PERIODIC_SELF_DAMAGE"
-        or event == "CHAT_MSG_SPELL_PERIODIC_PARTY_DAMAGE"
-        or event == "CHAT_MSG_SPELL_PERIODIC_FRIENDLYPLAYER_DAMAGE" then
-        OnPeriodicDamage()
-
     -- SuperWoW
     elseif event == "UNIT_CASTEVENT" then
         OnUnitCastEvent()
@@ -930,6 +856,13 @@ bus:SetScript("OnEvent", function()
         P.ScanGroupClasses()
         P.ScanGroupPets()
         P.ScanGroupMembers()
+        -- After /reload during combat, PLAYER_REGEN_DISABLED won't re-fire.
+        -- Detect and sync combat state so duration tracking works correctly.
+        if event == "PLAYER_ENTERING_WORLD" and UnitAffectingCombat("player") then
+            if P.combatState and P.combatState.state == "IDLE" then
+                P.combatState:OnCombatStart()
+            end
+        end
 
     -- Pet summon/dismiss/swap
     elseif event == "UNIT_PET" then
