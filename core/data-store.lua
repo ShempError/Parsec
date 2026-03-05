@@ -188,6 +188,30 @@ end
 ---------------------------------------------------------------------------
 
 function DS:GetSorted(viewType, segment)
+    -- Deaths view: uses P.deathLog counts instead of player data
+    if viewType == "deaths" then
+        local DL = P.deathLog
+        if not DL then return {}, 1, 0 end
+        local segKey = segment or "current"
+        local counts = DL.counts.current
+        if segKey == "overall" then counts = DL.counts.overall end
+        -- History segments: no death data (deaths are not per-history-segment)
+        if type(segment) == "number" then return {}, 1, 0 end
+
+        local sorted = {}
+        local raidTotal = 0
+        for name, count in pairs(counts) do
+            raidTotal = raidTotal + count
+            table.insert(sorted, {
+                name = name,
+                value = count,
+                raw = nil,
+            })
+        end
+        table.sort(sorted, function(a, b) return a.value > b.value end)
+        return sorted, 1, raidTotal
+    end
+
     local seg = self.current
     if segment == "overall" then
         seg = self.overall
@@ -300,6 +324,7 @@ end
 
 function DS:ResetCurrent()
     self.current = NewSegment()
+    if P.deathLog then P.deathLog:ResetCurrent() end
 end
 
 ---------------------------------------------------------------------------
@@ -313,6 +338,7 @@ function DS:ResetAll()
     if P.combatState then
         P.combatState:Reset()
     end
+    if P.deathLog then P.deathLog:ResetAll() end
     P.Print("All data reset.")
 end
 

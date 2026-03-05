@@ -371,9 +371,81 @@ SlashCmdList["PARSEC"] = function(msg)
             ds.current.startTime = now - fightDur
         end
 
+        -- Inject fake death records
+        if pp.deathLog then
+            local DL = pp.deathLog
+            local fakeDeaths = {
+                {
+                    name = "Raksha", class = "ROGUE",
+                    time = now - 8, timeFmt = date("%H:%M:%S"),
+                    killedBy = "Ragnaros", killSpell = "Magma Blast",
+                    killAmount = 4200, killSchool = 2, killCrit = true,
+                    hpMax = 4800, overkill = 620,
+                    totalDmg = 12400, totalHeal = 2100, duration = 6.2,
+                    events = {
+                        { time = now - 14.2, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 1850, school = 2, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil },
+                        { time = now - 12.8, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 1100, school = 0, crit = false, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil },
+                        { time = now - 11.5, etype = "HEAL", source = "Rotfang", spell = "Flash Heal", amount = 2100, school = 1, crit = false, hpAfter = 4800, hpMax = 4800, overkill = 0, missType = nil },
+                        { time = now - 10.1, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3200, school = 2, crit = true, hpAfter = 1600, hpMax = 4800, overkill = 0, missType = nil },
+                        { time = now - 9.3, etype = "MISS", source = "Ragnaros", spell = "Melee", amount = 0, school = 0, crit = false, hpAfter = nil, hpMax = nil, overkill = 0, missType = "DODGE" },
+                        { time = now - 8.7, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2050, school = 2, crit = false, hpAfter = 0, hpMax = 4800, overkill = 450, missType = nil },
+                        { time = now - 8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 4200, school = 2, crit = true, hpAfter = 0, hpMax = 4800, overkill = 620, missType = nil },
+                    },
+                },
+                {
+                    name = "Krag", class = "WARRIOR",
+                    time = now - 22, timeFmt = date("%H:%M:%S"),
+                    killedBy = "Ragnaros", killSpell = "Melee",
+                    killAmount = 2800, killSchool = 0, killCrit = false,
+                    hpMax = 7200, overkill = 0,
+                    totalDmg = 18400, totalHeal = 4200, duration = 9.5,
+                    events = {
+                        { time = now - 31.5, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2400, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil },
+                        { time = now - 29.8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 3800, school = 2, crit = true, hpAfter = 2000, hpMax = 7200, overkill = 0, missType = nil },
+                        { time = now - 28.1, etype = "HEAL", source = "Earthcall", spell = "Healing Wave", amount = 4200, school = 3, crit = false, hpAfter = 6200, hpMax = 7200, overkill = 0, missType = nil },
+                        { time = now - 26.3, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3400, school = 2, crit = false, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil },
+                        { time = now - 24.0, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2200, school = 0, crit = false, hpAfter = 600, hpMax = 7200, overkill = 0, missType = nil },
+                        { time = now - 22, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2800, school = 0, crit = false, hpAfter = 0, hpMax = 7200, overkill = 2200, missType = nil },
+                    },
+                },
+                {
+                    name = "Hexweaver", class = "SHAMAN",
+                    time = now - 35, timeFmt = date("%H:%M:%S"),
+                    killedBy = "Son of Flame", killSpell = "Fireball",
+                    killAmount = 3100, killSchool = 2, killCrit = false,
+                    hpMax = 4200, overkill = 200,
+                    totalDmg = 8600, totalHeal = 0, duration = 4.1,
+                    events = {
+                        { time = now - 39.1, etype = "DAMAGE", source = "Son of Flame", spell = "Fire Nova", amount = 2200, school = 2, crit = false, hpAfter = 3300, hpMax = 4200, overkill = 0, missType = nil },
+                        { time = now - 37.4, etype = "DAMAGE", source = "Son of Flame", spell = "Melee", amount = 1300, school = 0, crit = false, hpAfter = 2000, hpMax = 4200, overkill = 0, missType = nil },
+                        { time = now - 36.0, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2000, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 0, missType = nil },
+                        { time = now - 35, etype = "DAMAGE", source = "Son of Flame", spell = "Fireball", amount = 3100, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 200, missType = nil },
+                    },
+                },
+            }
+            DL:AddFakeDeaths(fakeDeaths)
+        end
+
         pp._fakeDataActive = true
-        pp.Print("|cff00ff00Fake data injected!|r 10 players, " .. fightDur .. "s fight, 3 history segments. Type /parsec fake again to clear.")
+        pp.Print("|cff00ff00Fake data injected!|r 10 players, " .. fightDur .. "s fight, 3 deaths, 3 history segments. Type /parsec fake again to clear.")
         pp.UpdateAllWindows()
+
+    elseif msg == "deaths" then
+        -- Switch main window to deaths view
+        if table.getn(pp.windows) > 0 then
+            local f = pp.windows[1]
+            f.pc.viewType = "deaths"
+            f.pc.scrollOffset = 0
+            pp.UpdateWindowTitle(f)
+            pp.UpdateParsecWindow(f)
+            f:Show()
+        end
+
+    elseif msg == "dr" or msg == "deathrecap" then
+        -- Open death recap panel
+        if pp.ShowDeathRecap then
+            pp.ShowDeathRecap()
+        end
 
     elseif msg == "help" then
         pp.Print("--- Parsec Commands ---")
@@ -385,6 +457,8 @@ SlashCmdList["PARSEC"] = function(msg)
         pp.Print("/parsec options - Open options panel")
         pp.Print("/parsec minimap - Toggle minimap button")
         pp.Print("/parsec history - Show saved fight history")
+        pp.Print("/parsec deaths - Show deaths view")
+        pp.Print("/parsec dr - Open death recap panel")
         pp.Print("/parsec debug - Toggle debug (pet attribution only)")
         pp.Print("/parsec verbose - Toggle verbose (raw event args)")
         pp.Print("/parsec pets - Show pet/totem owner cache")

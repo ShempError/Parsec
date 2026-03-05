@@ -567,6 +567,7 @@ function F:CreateSidebar()
         { name = "Window",     icon = self.ICONS.windows },
         { name = "Automation", icon = self.ICONS.automation },
         { name = "Channels",   icon = self.ICONS.general },
+        { name = "Deaths",     icon = self.ICONS.general },
         { name = "About",      icon = self.ICONS.about },
         { name = "Debug",      icon = self.ICONS.about },
     }
@@ -709,8 +710,9 @@ function F:BuildPanel(idx)
     elseif idx == 2 then self:BuildWindowPanel(panel, idx)
     elseif idx == 3 then self:BuildAutomationPanel(panel, idx)
     elseif idx == 4 then self:BuildChannelsPanel(panel, idx)
-    elseif idx == 5 then self:BuildAboutPanel(panel, idx)
-    elseif idx == 6 then self:BuildDebugPanel(panel, idx)
+    elseif idx == 5 then self:BuildDeathsPanel(panel, idx)
+    elseif idx == 6 then self:BuildAboutPanel(panel, idx)
+    elseif idx == 7 then self:BuildDebugPanel(panel, idx)
     end
 end
 
@@ -1110,6 +1112,50 @@ function F:RefreshChannelsPanel()
     if self.customChannelsContainer then
         self:RebuildCustomChannelRows()
     end
+end
+
+-- ============================================================
+-- DEATHS PANEL (deathAutoPopup, deathNotify, deathRecapOpacity)
+-- ============================================================
+function F:BuildDeathsPanel(panel, idx)
+    local y = self.PADDING
+    local ctrls = self.panels[idx].controls
+
+    y = self:CreateSectionHeader(panel, "Death Recap", y)
+
+    local cb1, y1 = self:CreateCheckbox(panel, "Auto-popup on own death", "deathAutoPopup", y)
+    ctrls.deathAutoPopup = cb1
+    y = y1
+
+    local cb2, y2 = self:CreateCheckbox(panel, "Chat notifications on group deaths", "deathNotify", y)
+    ctrls.deathNotify = cb2
+    y = y2
+
+    y = y + 4
+
+    local sl1, y3 = self:CreateSlider(panel, "Recap Panel Opacity:", "deathRecapOpacity", 0.3, 1.0, 0.05, y, true)
+    ctrls.deathRecapOpacity = sl1
+    y = y3
+
+    y = y + 10
+    y = self:CreateSectionHeader(panel, "Actions", y)
+
+    local btn1, y4 = self:CreateSmallButton(panel, "Open Death Recap", 130, y, function()
+        if P.ShowDeathRecap then
+            P.ShowDeathRecap()
+        end
+    end)
+    y = y4
+
+    y = y + 4
+
+    local btn2, y5 = self:CreateSmallButton(panel, "Clear Death Log", 130, y, function()
+        if P.deathLog then
+            P.deathLog:ResetAll()
+            P.Print("Death log cleared.")
+        end
+    end)
+    y = y5
 end
 
 -- ============================================================

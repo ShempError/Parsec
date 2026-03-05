@@ -13,13 +13,14 @@ local MAX_BARS = 20
 local UPDATE_INTERVAL = 0.5
 
 -- View cycle order
-local VIEW_CYCLE = { "damage", "healing", "effheal", "dps", "hps" }
+local VIEW_CYCLE = { "damage", "healing", "effheal", "dps", "hps", "deaths" }
 local VIEW_LABELS = {
     damage  = "Damage",
     healing = "Healing",
     effheal = "Eff. Healing",
     dps     = "DPS",
     hps     = "HPS",
+    deaths  = "Deaths",
 }
 local SEGMENT_LABELS = {
     current = "Current",
@@ -96,10 +97,18 @@ local function CreateBar(parent)
     bar:SetScript("OnLeave", function()
         P.HideBarTooltip()
     end)
+    bar:SetScript("OnMouseUp", function()
+        if this.viewType == "deaths" and this.playerName then
+            if P.ShowDeathRecapForPlayer then
+                P.ShowDeathRecapForPlayer(this.playerName, this.segment)
+            end
+        end
+    end)
 
     bar.playerName = nil
     bar.playerData = nil
     bar.viewType = nil
+    bar.segment = nil
 
     return bar
 end
@@ -194,10 +203,42 @@ end
 
 function P.HideBarTooltip()
     tooltipFrame:Hide()
+    GameTooltip:Hide()
 end
 
 function P.ShowBarTooltip(bar)
-    if not bar.playerName or not bar.playerData then return end
+    if not bar.playerName then return end
+
+    -- Deaths view: show last death info in GameTooltip
+    if bar.viewType == "deaths" then
+        local name = bar.playerName
+        local DL = P.deathLog
+        if not DL then return end
+        local segment = bar.segment or "current"
+        local count = DL:GetDeathCount(name, segment)
+        local deaths = DL:GetDeathsForPlayer(name, segment)
+
+        GameTooltip:SetOwner(bar, "ANCHOR_CURSOR")
+        local cc = P.GetClassColor(name)
+        GameTooltip:AddLine(name, cc.r, cc.g, cc.b)
+        GameTooltip:AddLine(count .. (count == 1 and " death" or " deaths"), 1, 1, 1)
+        if table.getn(deaths) > 0 then
+            local last = deaths[1]
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Last death:", 1, 0.82, 0)
+            GameTooltip:AddLine(last.killSpell .. " (" .. last.killedBy .. ")", 1, 0.3, 0.3)
+            GameTooltip:AddLine(P.FormatNumber(last.killAmount) .. " damage", 0.8, 0.8, 0.8)
+            if last.timeFmt then
+                GameTooltip:AddLine("at " .. last.timeFmt, 0.6, 0.6, 0.6)
+            end
+        end
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Click to open Death Recap", 0, 0.8, 1)
+        GameTooltip:Show()
+        return
+    end
+
+    if not bar.playerData then return end
     local data = bar.playerData
     local name = bar.playerName
     local vt = bar.viewType
@@ -490,6 +531,16 @@ local function InitMainMenu()
     info.text = "Reset All"
     info.func = function()
         P.ResetData()
+    end
+    UIDropDownMenu_AddButton(info)
+
+    -- Death Recap
+    info = {}
+    info.text = "Death Recap"
+    info.func = function()
+        if P.ShowDeathRecap then
+            P.ShowDeathRecap()
+        end
     end
     UIDropDownMenu_AddButton(info)
 
@@ -822,7 +873,9 @@ function P.UpdateParsecWindow(frame)
     totalBar.name:SetTextColor(0.85, 0.85, 0.85)
 
     -- Format total value based on view type
-    if pc.viewType == "dps" or pc.viewType == "hps" then
+    if pc.viewType == "deaths" then
+        totalBar.value:SetText(string.format("%.0f", raidTotal))
+    elseif pc.viewType == "dps" or pc.viewType == "hps" then
         totalBar.value:SetText(string.format("%.1f", raidTotal))
     else
         totalBar.value:SetText(P.FormatNumber(raidTotal))
@@ -868,7 +921,9 @@ function P.UpdateParsecWindow(frame)
             pctOfTotal = " (" .. string.format("%.1f%%", (entry.value / raidTotal) * 100) .. ")"
         end
 
-        if pc.viewType == "dps" or pc.viewType == "hps" then
+        if pc.viewType == "deaths" then
+            bar.value:SetText(string.format("%.0f", entry.value))
+        elseif pc.viewType == "dps" or pc.viewType == "hps" then
             bar.value:SetText(string.format("%.1f", entry.value) .. pctOfTotal)
         else
             bar.value:SetText(P.FormatNumber(entry.value) .. pctOfTotal)
@@ -936,7 +991,10 @@ function P.AnnounceToChannel(frame, channel, channelId)
             pctStr = string.format(" (%.1f%%)", (entry.value / raidTotal) * 100)
         end
         local valStr
-        if pc.viewType == "dps" or pc.viewType == "hps" then
+        if pc.viewType == "deaths" then
+            valStr = string.format("%.0f", entry.value)
+            pctStr = ""
+        elseif pc.viewType == "dps" or pc.viewType == "hps" then
             valStr = string.format("%.1f", entry.value)
         else
             valStr = P.FormatNumber(entry.value)

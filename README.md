@@ -41,6 +41,12 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Minimap button** - left-click toggle windows, right-click options, middle-click reset
 - **Options panel** - dark themed UI with sidebar navigation (see below)
 - **Debug panel** - message log (last 500 messages) with copy-paste for bug reports
+- **Death Log** - track all deaths with per-player death counts in the main window
+- **Death Recap panel** - detailed breakdown of each death: damage timeline, healing received, HP bar, killing blow highlight, overkill calculation
+- **Death event timeline** - ring buffer captures the last 30 incoming damage/heal/miss events per player with HP snapshots
+- **Death navigation** - browse through all deaths per player with Prev/Next buttons, mousewheel scrolling
+- **Death notifications** - chat notification when a group member dies (toggleable)
+- **Auto-popup death recap** - automatically show death recap when you die (toggleable)
 - **Auto show/hide** windows on combat start/end
 - **Lock windows** to prevent accidental moving
 
@@ -65,6 +71,8 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 | `/parsec pets` | Show pet-owner cache |
 | `/parsec stats` | Show event statistics |
 | `/parsec history` | List saved fight segments |
+| `/parsec deaths` | Switch main window to Deaths view |
+| `/parsec dr` / `deathrecap` | Open Death Recap panel |
 | `/parsec fake` | Generate fake data for testing |
 | `/parsec help` | List all commands |
 
@@ -73,6 +81,7 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Bars** - Bar height, spacing, texture picker, font shadow, font outline, pet merge toggle
 - **Window** - Backdrop visibility, opacity, tooltip opacity, lock positions, click-to-cycle toggle, reset actions
 - **Automation** - Auto show/hide on combat, minimap button, track-all toggle, max fight history slider, clear history
+- **Deaths** - Auto-popup death recap, death notifications, recap panel opacity
 - **About** - Version info and command reference
 - **Debug** - Message log buffer with Select All / Clear / Refresh
 
@@ -80,7 +89,6 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 
 - Only tested in solo and small group content
 - Raid (40-man) tested once successfully, but needs ongoing validation after major changes
-- No death log
 - Threat tracking not implemented
 
 ## Architecture
@@ -98,15 +106,27 @@ Parsec/
   modules/
     damage.lua        - Damage event handlers
     healing.lua       - Healing event handlers
+    death.lua         - Death tracking, intake ring buffer, death records
   ui/
     window.xml        - XML templates for window frames
     window.lua        - Window creation, resize, title bar, bar rendering
     minimap-button.lua- Draggable minimap icon
     options.lua       - Options panel (sidebar + lazy-built panels)
+    deathlog.lua      - Death Recap panel UI
   textures/           - Custom TGA textures (bars, icons, window chrome)
 ```
 
 ## Changelog
+
+### v0.5.0 (2026-03-05)
+- **Death Log** — comprehensive death tracking with per-player death counts in the main window Deaths view
+- **Death Recap panel** — detailed post-mortem analysis: damage timeline with school colors, healing received, HP bar visualization, killing blow highlight, overkill calculation, prev/next navigation
+- **Damage intake tracking** — ring buffer captures last 30 incoming damage/heal/miss events per player with real-time HP snapshots via SuperWoW
+- **Auto-popup** — death recap automatically opens when you die (toggleable in Options > Deaths)
+- **Death notifications** — chat message when a group member dies (toggleable)
+- **Deaths options tab** — auto-popup toggle, notification toggle, recap panel opacity slider
+- **Slash commands** — `/parsec deaths` (switch to Deaths view), `/parsec dr` (open Death Recap)
+- **Fake data** — `/parsec fake` now generates 3 sample death records for testing
 
 ### v0.4.1 (2026-03-04)
 - **Channels options tab** — standard + custom channels with checkboxes and ChatTypeInfo color swatches

@@ -58,6 +58,11 @@ function CS:FinalizeSegment()
         P.dataStore:ResetCurrent()
     end
 
+    -- Clear intake buffers (death log) for next combat
+    if P.deathLog then
+        P.deathLog:ClearIntake()
+    end
+
     self.combatStart = 0
     self.combatEnd = 0
     self.combatDuration = 0
