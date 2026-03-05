@@ -8,6 +8,7 @@ table.insert(P._loadedFiles, "damage")
 
 local function OnDamage(data)
     if not P.dataStore then return end
+    if P.settings.modules and not P.settings.modules.damage then return end
 
     local source = data.source
     -- Attribute pet damage to owner (when mergePets enabled)

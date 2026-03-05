@@ -31,6 +31,11 @@ P.DEFAULTS = {
     deathAutoPopup = true,
     deathNotify    = true,
     deathRecapOpacity = 0.95,
+    modules = {
+        damage  = true,
+        healing = true,
+        deaths  = true,
+    },
     enabledChannels = {
         SAY = true,
         PARTY = true,
@@ -141,6 +146,15 @@ function P.LoadSettings()
     -- Migrate fontShadow: number (brief v0.3.x) -> boolean
     if type(P.settings.fontShadow) == "number" then
         P.settings.fontShadow = P.settings.fontShadow > 0
+    end
+
+    -- Merge modules: add new defaults to saved table
+    if type(P.settings.modules) == "table" then
+        for k, v in pairs(P.DEFAULTS.modules) do
+            if P.settings.modules[k] == nil then
+                P.settings.modules[k] = v
+            end
+        end
     end
 
     -- Merge enabledChannels: add new defaults to saved table

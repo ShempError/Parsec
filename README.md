@@ -47,6 +47,7 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Death navigation** - browse through all deaths per player with Prev/Next buttons, mousewheel scrolling
 - **Death notifications** - chat notification when a group member dies (toggleable)
 - **Auto-popup death recap** - automatically show death recap when you die (toggleable)
+- **Module toggles** - enable/disable individual tracking modules (Damage, Healing, Deaths) from the options panel
 - **Auto show/hide** windows on combat start/end
 - **Lock windows** to prevent accidental moving
 
@@ -81,6 +82,7 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Bars** - Bar height, spacing, texture picker, font shadow, font outline, pet merge toggle
 - **Window** - Backdrop visibility, opacity, tooltip opacity, lock positions, click-to-cycle toggle, reset actions
 - **Automation** - Auto show/hide on combat, minimap button, track-all toggle, max fight history slider, clear history
+- **Modules** - Enable/disable individual tracking modules (Damage/DPS, Healing/HPS, Deaths)
 - **Deaths** - Auto-popup death recap, death notifications, recap panel opacity
 - **About** - Version info and command reference
 - **Debug** - Message log buffer with Select All / Clear / Refresh

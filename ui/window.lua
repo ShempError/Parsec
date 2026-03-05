@@ -27,6 +27,30 @@ local SEGMENT_LABELS = {
     overall = "Overall",
 }
 
+-- Map each view to the module that must be enabled
+local VIEW_MODULE = {
+    damage  = "damage",
+    dps     = "damage",
+    healing = "healing",
+    effheal = "healing",
+    hps     = "healing",
+    deaths  = "deaths",
+}
+
+-- Return only views whose module is enabled
+local function GetEnabledViews()
+    local mods = P.settings and P.settings.modules
+    local out = {}
+    for i = 1, table.getn(VIEW_CYCLE) do
+        local v = VIEW_CYCLE[i]
+        local mod = VIEW_MODULE[v]
+        if not mods or mods[mod] ~= false then
+            table.insert(out, v)
+        end
+    end
+    return out
+end
+
 local WINDOW_DEFS = {
     { viewType = "damage",  segment = "current", title = "Damage" },
 }
@@ -446,8 +470,9 @@ local function InitMainMenu()
     info.isTitle = true
     UIDropDownMenu_AddButton(info)
 
-    for i = 1, table.getn(VIEW_CYCLE) do
-        local capturedView = VIEW_CYCLE[i]
+    local enabledViews = GetEnabledViews()
+    for i = 1, table.getn(enabledViews) do
+        local capturedView = enabledViews[i]
         info = {}
         info.text = VIEW_LABELS[capturedView]
         info.checked = (pc.viewType == capturedView)
@@ -1210,16 +1235,18 @@ function P.CreateWindow(viewType, segment)
     viewBtn:SetScript("OnClick", function()
         if not (P.settings and P.settings.clickToCycleView) then return end
         local pc = this:GetParent().pc
-        local currentIdx = 1
-        for i = 1, table.getn(VIEW_CYCLE) do
-            if VIEW_CYCLE[i] == pc.viewType then
+        local enabled = GetEnabledViews()
+        if table.getn(enabled) == 0 then return end
+        local currentIdx = 0
+        for i = 1, table.getn(enabled) do
+            if enabled[i] == pc.viewType then
                 currentIdx = i
                 break
             end
         end
         local nextIdx = currentIdx + 1
-        if nextIdx > table.getn(VIEW_CYCLE) then nextIdx = 1 end
-        pc.viewType = VIEW_CYCLE[nextIdx]
+        if nextIdx > table.getn(enabled) then nextIdx = 1 end
+        pc.viewType = enabled[nextIdx]
         pc.scrollOffset = 0
         P.UpdateWindowTitle(this:GetParent())
         P.UpdateParsecWindow(this:GetParent())

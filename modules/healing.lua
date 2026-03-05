@@ -8,6 +8,7 @@ table.insert(P._loadedFiles, "healing")
 
 local function OnHeal(data)
     if not P.dataStore then return end
+    if P.settings.modules and not P.settings.modules.healing then return end
 
     -- Only record healing during combat (like DPSMate)
     if P.combatState and not P.combatState:InCombat() then return end

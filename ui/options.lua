@@ -566,6 +566,7 @@ function F:CreateSidebar()
         { name = "Bars",       icon = self.ICONS.general },
         { name = "Window",     icon = self.ICONS.windows },
         { name = "Automation", icon = self.ICONS.automation },
+        { name = "Modules",    icon = self.ICONS.general },
         { name = "Channels",   icon = self.ICONS.general },
         { name = "Deaths",     icon = self.ICONS.general },
         { name = "About",      icon = self.ICONS.about },
@@ -709,10 +710,11 @@ function F:BuildPanel(idx)
     if idx == 1 then self:BuildBarsPanel(panel, idx)
     elseif idx == 2 then self:BuildWindowPanel(panel, idx)
     elseif idx == 3 then self:BuildAutomationPanel(panel, idx)
-    elseif idx == 4 then self:BuildChannelsPanel(panel, idx)
-    elseif idx == 5 then self:BuildDeathsPanel(panel, idx)
-    elseif idx == 6 then self:BuildAboutPanel(panel, idx)
-    elseif idx == 7 then self:BuildDebugPanel(panel, idx)
+    elseif idx == 4 then self:BuildModulesPanel(panel, idx)
+    elseif idx == 5 then self:BuildChannelsPanel(panel, idx)
+    elseif idx == 6 then self:BuildDeathsPanel(panel, idx)
+    elseif idx == 7 then self:BuildAboutPanel(panel, idx)
+    elseif idx == 8 then self:BuildDebugPanel(panel, idx)
     end
 end
 
@@ -1112,6 +1114,99 @@ function F:RefreshChannelsPanel()
     if self.customChannelsContainer then
         self:RebuildCustomChannelRows()
     end
+end
+
+-- ============================================================
+-- MODULES PANEL (enable/disable tracking modules)
+-- ============================================================
+function F:BuildModulesPanel(panel, idx)
+    local y = self.PADDING
+    y = self:CreateSectionHeader(panel, "Tracking Modules", y)
+
+    local modules = {
+        { key = "damage",  label = "Damage / DPS" },
+        { key = "healing", label = "Healing / HPS" },
+        { key = "deaths",  label = "Deaths" },
+    }
+
+    for i = 1, table.getn(modules) do
+        local mod = modules[i]
+        local capturedKey = mod.key
+
+        local row = CreateFrame("Button", nil, panel)
+        row:SetHeight(self.CHECK_SIZE + 2)
+        row:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -y)
+        row:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, -y)
+
+        local cb = CreateFrame("CheckButton", nil, row)
+        cb:SetWidth(self.CHECK_SIZE)
+        cb:SetHeight(self.CHECK_SIZE)
+        cb:SetPoint("LEFT", row, "LEFT", 0, 0)
+
+        local cbBG = cb:CreateTexture(nil, "BACKGROUND")
+        cbBG:SetAllPoints(cb)
+        cbBG:SetTexture(self.DARK[1], self.DARK[2], self.DARK[3], 0.8)
+
+        local cbBorder = cb:CreateTexture(nil, "BORDER")
+        cbBorder:SetWidth(self.CHECK_SIZE + 2)
+        cbBorder:SetHeight(self.CHECK_SIZE + 2)
+        cbBorder:SetPoint("CENTER", cb, "CENTER", 0, 0)
+        cbBorder:SetTexture(0.3, 0.3, 0.3, 1)
+        cb:SetNormalTexture(cbBorder)
+
+        local checkTex = cb:CreateTexture(nil, "OVERLAY")
+        checkTex:SetWidth(self.CHECK_SIZE - 6)
+        checkTex:SetHeight(self.CHECK_SIZE - 6)
+        checkTex:SetPoint("CENTER", cb, "CENTER", 0, 0)
+        checkTex:SetTexture(self.CYAN[1], self.CYAN[2], self.CYAN[3], 1)
+        cb:SetCheckedTexture(checkTex)
+
+        local hlTex = cb:CreateTexture(nil, "HIGHLIGHT")
+        hlTex:SetAllPoints(cb)
+        hlTex:SetTexture(1, 1, 1, 0.1)
+        cb:SetHighlightTexture(hlTex)
+
+        local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        text:SetPoint("LEFT", cb, "RIGHT", 6, 0)
+        text:SetText(mod.label)
+        text:SetTextColor(1, 1, 1)
+
+        -- Init from nested setting
+        if P.settings.modules and P.settings.modules[capturedKey] then
+            cb:SetChecked(1)
+        else
+            cb:SetChecked(nil)
+        end
+
+        local capturedCb = cb
+        row:SetScript("OnClick", function()
+            local checked = not capturedCb:GetChecked()
+            if checked then capturedCb:SetChecked(1) else capturedCb:SetChecked(nil) end
+            if not P.settings.modules then P.settings.modules = {} end
+            P.settings.modules[capturedKey] = checked
+            P.SaveSettings()
+            P.ApplySettings()
+        end)
+
+        cb:SetScript("OnClick", function()
+            local checked = (this:GetChecked() == 1)
+            if not P.settings.modules then P.settings.modules = {} end
+            P.settings.modules[capturedKey] = checked
+            P.SaveSettings()
+            P.ApplySettings()
+        end)
+
+        y = y + self.CHECK_SIZE + self.SPACING
+    end
+
+    -- Info text
+    y = y + 8
+    local info = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    info:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -y)
+    info:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -self.PADDING, -y)
+    info:SetJustifyH("LEFT")
+    info:SetText("Disabled modules stop tracking data and hide their views from the cycle menu.")
+    info:SetTextColor(0.6, 0.6, 0.6)
 end
 
 -- ============================================================

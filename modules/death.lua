@@ -77,6 +77,7 @@ end
 ---------------------------------------------------------------------------
 
 local function OnDamageIntake(data)
+    if P.settings.modules and not P.settings.modules.deaths then return end
     -- REVERSE of damage.lua: only track damage WHERE target IS a group member
     if not data.target then return end
     -- Include player + group members
@@ -106,6 +107,7 @@ local function OnDamageIntake(data)
 end
 
 local function OnHealIntake(data)
+    if P.settings.modules and not P.settings.modules.deaths then return end
     -- Track heals received by group members (for timeline context)
     if not data.target then return end
     local isPlayer = (data.target == UnitName("player"))
@@ -134,6 +136,7 @@ local function OnHealIntake(data)
 end
 
 local function OnMissIntake(data)
+    if P.settings.modules and not P.settings.modules.deaths then return end
     if not data.target then return end
     local isPlayer = (data.target == UnitName("player"))
     if not isPlayer and not P.IsGroupMember(data.target) then return end
@@ -155,6 +158,7 @@ local function OnMissIntake(data)
 end
 
 local function OnDeath(data)
+    if P.settings.modules and not P.settings.modules.deaths then return end
     if not data.name then return end
     local isPlayer = (data.name == UnitName("player"))
     if not isPlayer and not P.IsGroupMember(data.name) then return end
