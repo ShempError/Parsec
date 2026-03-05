@@ -36,7 +36,7 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Fight history** - save past combat segments for post-fight review (configurable limit, right-click segment button to select)
 - **Custom bar textures** - Solid, Gradient, Striped, Glossy, Smooth, Flat, Ember, Rain
 - **Font outline & shadow** - toggle outline/shadow for bar text readability
-- **Spell tooltip** - cursor-following tooltip with spell bars, crit% column, and adjustable opacity
+- **Spell tooltip** - cursor-following tooltip with spell bars, accurate crit% column (excludes DoT ticks), and adjustable opacity
 - **Clickable title bar** - click segment indicator to toggle Current/Overall, click view label to cycle metrics
 - **Minimap button** - left-click toggle windows, right-click options, middle-click reset
 - **Options panel** - dark themed UI with sidebar navigation (see below)
@@ -123,6 +123,11 @@ Parsec/
 ```
 
 ## Changelog
+
+### v0.5.2 (2026-03-05)
+- **Fix crit% calculation** — periodic damage ticks (DoT: Fireball, Ignite, Pyroblast, etc.) are now excluded from the crit percentage denominator. Direct spell hits always set `SPELL_HIT_TYPE_UNK1 (0x01)` in hitInfo, while periodic ticks from `SMSG_PERIODICAURALOG` have hitInfo=0. Crit% now shows `crits / directHits` instead of `crits / allHits`, giving accurate values for spells with DoT components. Same fix applied to healing (HoT ticks excluded via Nampower's explicit periodic flag in arg6).
+- **Consumable icon system** — 128 spellID→itemID mappings for potions, elixirs, flasks, healthstones, bandages, runes, juju, and TurtleWoW custom items. Death Recap now shows correct item icons and full item names instead of generic spell fallbacks.
+- **Consumable categories** — Healing/Mana/Rejuvenation Potions, Troll's Blood, Rage Potions, Healthstones (including Improved), Protection Potions, Utility Potions, Flasks, Battle/Guardian/Detection Elixirs, Juju, Runes, Bandages (including BG variants), Food/Drink, TurtleWoW custom (Nordanaar Herbal Tea)
 
 ### v0.5.1 (2026-03-05)
 - **Death Recap v2** — complete redesign with split layout: unit frame + interactive event log

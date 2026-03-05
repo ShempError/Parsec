@@ -413,6 +413,7 @@ SlashCmdList["PARSEC"] = function(msg)
                         { time = now - 12.8, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 1100, school = 0, crit = false, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff14, fakeBuff15, fakeBuff17, fakeBuffEvasion }, debuffs = { fakeDebuff2 } },
                         { time = now - 12.2, etype = "OUTGOING", source = "Raksha", target = "Ragnaros", spell = "Eviscerate", spellID = 11300, amount = 1850, school = 0, crit = true, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 30, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff14, fakeBuff15, fakeBuffEvasion }, debuffs = { fakeDebuff2 } },
                         { time = now - 11.5, etype = "HEAL", source = "Rotfang", spell = "Flash Heal", amount = 2100, school = 1, crit = false, hpAfter = 4800, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff14, fakeBuff15, fakeBuff12 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 10.8, etype = "BUFF", source = "Raksha", spell = "Invulnerability", spellID = 3169, amount = 0, school = 0, crit = false, hpAfter = 4800, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 45, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff2 } },
                         { time = now - 10.1, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3200, school = 2, crit = true, hpAfter = 1600, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
                         { time = now - 9.3, etype = "MISS", source = "Ragnaros", spell = "Melee", amount = 0, school = 0, crit = false, hpAfter = nil, hpMax = nil, overkill = 0, missType = "DODGE", manaAfter = 30, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff5, fakeBuff14 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
                         { time = now - 8.7, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2050, school = 2, crit = false, hpAfter = 0, hpMax = 4800, overkill = 450, missType = nil, manaAfter = 20, manaMax = 100, powerType = 3, buffs = { fakeBuff1 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
@@ -432,6 +433,7 @@ SlashCmdList["PARSEC"] = function(msg)
                         { time = now - 30.5, etype = "BUFF", source = "Krag", spell = "Shield Wall", spellID = 871, amount = 0, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 72, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff12, fakeBuff13, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17, fakeBuffSW }, debuffs = {} },
                         { time = now - 29.8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 3800, school = 2, crit = true, hpAfter = 2000, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 85, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17, fakeBuffSW }, debuffs = { fakeDebuff2 } },
                         { time = now - 28.1, etype = "HEAL", source = "Earthcall", spell = "Healing Wave", amount = 4200, school = 3, crit = false, hpAfter = 6200, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff5, fakeBuff6, fakeBuff8, fakeBuff9, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 27.0, etype = "HEAL", source = "Krag", spell = "Tea", spellID = 19398, amount = 662, school = 0, crit = false, hpAfter = 6862, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 80, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff5, fakeBuff6, fakeBuff8, fakeBuff9, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff2 } },
                         { time = now - 26.3, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3400, school = 2, crit = false, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
                         { time = now - 25.5, etype = "OUTGOING", source = "Krag", target = "Ragnaros", spell = "Execute", spellID = 20662, amount = 2150, school = 0, crit = true, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 15, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
                         { time = now - 24.0, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2200, school = 0, crit = false, hpAfter = 600, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff5 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
@@ -471,6 +473,8 @@ SlashCmdList["PARSEC"] = function(msg)
                 ["Heroic Strike"]      = { icon = "Interface\\Icons\\Ability_Rogue_Ambush", id = 11567 },
                 ["Execute"]            = { icon = "Interface\\Icons\\INV_Sword_48", id = 20662 },
                 ["Lightning Bolt"]     = { icon = "Interface\\Icons\\Spell_Nature_Lightning", id = 10391 },
+                ["Tea"]                = { id = 19398, itemName = "Nordanaar Herbal Tea" },
+                ["Invulnerability"]    = { id = 3169, itemName = "Limited Invulnerability Potion" },
             }
             local fakeRaidTargets = {
                 ["Ragnaros"] = 8,       -- Skull
@@ -481,8 +485,12 @@ SlashCmdList["PARSEC"] = function(msg)
                 for j = 1, table.getn(events) do
                     local info = fakeSpells[events[j].spell]
                     if info then
-                        events[j].spellIcon = info.icon
+                        if info.icon then events[j].spellIcon = info.icon end
                         if info.id then events[j].spellID = info.id end
+                        -- Pre-fill consumable name cache for fake data
+                        if info.itemName and info.id and DL then
+                            DL.consumableNameCache[info.id] = info.itemName
+                        end
                     end
                     if events[j].etype == "OUTGOING" then
                         events[j].raidTarget = fakeRaidTargets[events[j].target]

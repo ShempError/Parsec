@@ -412,10 +412,11 @@ function P.ShowBarTooltip(bar)
             sbar.name:SetText(sp.name)
             sbar.name:SetTextColor(1, 1, 1)
 
-            -- Crit column
+            -- Crit column (exclude periodic ticks — they can never crit)
             local critText = ""
-            if sp.data.hits and sp.data.hits > 0 and sp.data.crits then
-                critText = string.format("%.0f%%", (sp.data.crits / sp.data.hits) * 100)
+            local directHits = (sp.data.hits or 0) - (sp.data.ticks or 0)
+            if directHits > 0 and sp.data.crits then
+                critText = string.format("%.0f%%", (sp.data.crits / directHits) * 100)
             end
             sbar.crit:SetText(critText)
             sbar.crit:SetTextColor(1, 1, 0)

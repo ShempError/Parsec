@@ -65,7 +65,7 @@ end
 -- Internal: apply damage to a single segment
 ---------------------------------------------------------------------------
 
-local function ApplyDamage(seg, source, spellName, amount, crit)
+local function ApplyDamage(seg, source, spellName, amount, crit, periodic)
     local p = seg.players[source]
     if not p then
         p = NewPlayerEntry()
@@ -78,11 +78,12 @@ local function ApplyDamage(seg, source, spellName, amount, crit)
     p.last_action = now
 
     if not p.damage_spells[spellName] then
-        p.damage_spells[spellName] = { total = 0, hits = 0, crits = 0, min = 999999, max = 0 }
+        p.damage_spells[spellName] = { total = 0, hits = 0, crits = 0, ticks = 0, min = 999999, max = 0 }
     end
     local sp = p.damage_spells[spellName]
     sp.total = sp.total + amount
     sp.hits = sp.hits + 1
+    if periodic then sp.ticks = (sp.ticks or 0) + 1 end
     if crit then sp.crits = sp.crits + 1 end
     if amount < sp.min then sp.min = amount end
     if amount > sp.max then sp.max = amount end
@@ -92,7 +93,7 @@ end
 -- Internal: apply healing to a single segment
 ---------------------------------------------------------------------------
 
-local function ApplyHeal(seg, source, spellName, amount, overheal, crit)
+local function ApplyHeal(seg, source, spellName, amount, overheal, crit, periodic)
     local p = seg.players[source]
     if not p then
         p = NewPlayerEntry()
@@ -108,13 +109,14 @@ local function ApplyHeal(seg, source, spellName, amount, overheal, crit)
     p.last_action = now
 
     if not p.heal_spells[spellName] then
-        p.heal_spells[spellName] = { total = 0, effective = 0, overheal = 0, hits = 0, crits = 0 }
+        p.heal_spells[spellName] = { total = 0, effective = 0, overheal = 0, hits = 0, crits = 0, ticks = 0 }
     end
     local sp = p.heal_spells[spellName]
     sp.total = sp.total + amount
     sp.effective = sp.effective + effective
     sp.overheal = sp.overheal + (overheal or 0)
     sp.hits = sp.hits + 1
+    if periodic then sp.ticks = (sp.ticks or 0) + 1 end
     if crit then sp.crits = sp.crits + 1 end
 end
 
@@ -122,20 +124,20 @@ end
 -- Public: Add damage (writes to both segments)
 ---------------------------------------------------------------------------
 
-function DS:AddDamage(source, target, spellName, amount, crit)
+function DS:AddDamage(source, target, spellName, amount, crit, periodic)
     if not source or not spellName then return end
-    ApplyDamage(self.current, source, spellName, amount, crit)
-    ApplyDamage(self.overall, source, spellName, amount, crit)
+    ApplyDamage(self.current, source, spellName, amount, crit, periodic)
+    ApplyDamage(self.overall, source, spellName, amount, crit, periodic)
 end
 
 ---------------------------------------------------------------------------
 -- Public: Add healing (writes to both segments)
 ---------------------------------------------------------------------------
 
-function DS:AddHeal(source, target, spellName, amount, overheal, crit)
+function DS:AddHeal(source, target, spellName, amount, overheal, crit, periodic)
     if not source or not spellName then return end
-    ApplyHeal(self.current, source, spellName, amount, overheal, crit)
-    ApplyHeal(self.overall, source, spellName, amount, overheal, crit)
+    ApplyHeal(self.current, source, spellName, amount, overheal, crit, periodic)
+    ApplyHeal(self.overall, source, spellName, amount, overheal, crit, periodic)
 end
 
 ---------------------------------------------------------------------------

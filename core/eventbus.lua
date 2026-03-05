@@ -382,6 +382,11 @@ local function OnSpellDamage()
     local target = P.ResolveName(targetGuid) or targetGuid or "?"
     local crit = IsSpellCrit(hitInfo)
 
+    -- Periodic damage (DoT ticks) has hitInfo == 0 because it originates
+    -- from SMSG_PERIODICAURALOG (no SpellHitType flags).
+    -- Direct spell hits always have SPELL_HIT_TYPE_UNK1 (0x01) set.
+    local periodic = (hitInfo == 0)
+
     local spellName = "?"
     if spellID and SpellInfo then
         local name = SpellInfo(spellID)
@@ -402,6 +407,7 @@ local function OnSpellDamage()
         amount = amount,
         school = school,
         crit = crit,
+        periodic = periodic,
         isPet = (petOwner ~= nil),
         petOwner = petOwner,
     }
@@ -464,6 +470,7 @@ local function OnSpellHeal()
     local spellID = arg3
     local amount = tonumber(arg4) or 0
     local crit = (arg5 == 1 or arg5 == true)
+    local periodic = (arg6 == 1 or arg6 == true)
 
     local source = P.ResolveName(casterGuid) or casterGuid or "?"
     local target = P.ResolveName(targetGuid) or targetGuid or "?"
@@ -499,6 +506,7 @@ local function OnSpellHeal()
         amount = amount,
         school = 0,
         crit = crit,
+        periodic = periodic,
         overheal = overheal,
     }
 

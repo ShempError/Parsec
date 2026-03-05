@@ -953,7 +953,8 @@ end
 function D:ShowEventTooltip(frame, e)
     GameTooltip:SetOwner(frame, "ANCHOR_CURSOR")
 
-    D:AddSpellInfoLines(e.spellID, e.spell)
+    local tooltipName = (DL and DL.GetConsumableName and DL.GetConsumableName(e.spellID)) or e.spell
+    D:AddSpellInfoLines(e.spellID, tooltipName)
 
     -- Separator before death recap info
     GameTooltip:AddLine(" ")
@@ -1171,8 +1172,9 @@ function D:UpdateEventRows()
                 row.raidIcon:Hide()
             end
 
-            -- Spell name + source/target
-            local spellSource = e.spell
+            -- Spell name + source/target (use full item name for consumables)
+            local displayName = (DL and DL.GetConsumableName and DL.GetConsumableName(e.spellID)) or e.spell
+            local spellSource = displayName
             if e.etype == "OUTGOING" then
                 -- Show "spell -> target" for outgoing attacks
                 if e.target and e.target ~= "?" then
