@@ -73,6 +73,39 @@ local function FreezeIntake(name)
 end
 
 ---------------------------------------------------------------------------
+-- Helpers: Aura Snapshots & Spell Icons
+---------------------------------------------------------------------------
+
+local function SnapshotAuras(unit)
+    local buffs, debuffs = {}, {}
+    if not unit then return buffs, debuffs end
+    for i = 1, 32 do
+        local tex, stacks, debuffType, auraID = UnitBuff(unit, i)
+        if not tex then break end
+        table.insert(buffs, { texture = tex, stacks = stacks or 0, auraID = auraID })
+    end
+    for i = 1, 16 do
+        local tex, stacks, debuffType, auraID = UnitDebuff(unit, i)
+        if not tex then break end
+        table.insert(debuffs, { texture = tex, stacks = stacks or 0, debuffType = debuffType, auraID = auraID })
+    end
+    return buffs, debuffs
+end
+
+DL.spellIconCache = {}
+
+function DL.GetSpellIcon(spellID)
+    if not spellID then return nil end
+    if DL.spellIconCache[spellID] then return DL.spellIconCache[spellID] end
+    if SpellInfo then
+        local name, rank, tex = SpellInfo(spellID)
+        if tex then DL.spellIconCache[spellID] = tex end
+        return tex
+    end
+    return nil
+end
+
+---------------------------------------------------------------------------
 -- Event Handlers
 ---------------------------------------------------------------------------
 
@@ -90,6 +123,19 @@ local function OnDamageIntake(data)
         hpMax = UnitHealthMax(data.targetGUID)
     end
 
+    -- Resource + aura snapshot
+    local unit = P.FindUnitByName(data.target)
+    local manaAfter, manaMax, powerType
+    if unit then
+        manaAfter = UnitMana(unit)
+        manaMax = UnitManaMax(unit)
+        powerType = UnitPowerType(unit)
+    elseif data.targetGUID then
+        manaAfter = UnitMana(data.targetGUID)
+        manaMax = UnitManaMax(data.targetGUID)
+    end
+    local buffs, debuffs = SnapshotAuras(unit)
+
     PushIntake(data.target, {
         time = data.time or GetTime(),
         etype = "DAMAGE",
@@ -103,6 +149,11 @@ local function OnDamageIntake(data)
         hpMax = hpMax,
         overkill = 0,
         missType = nil,
+        manaAfter = manaAfter,
+        manaMax = manaMax,
+        powerType = powerType,
+        buffs = buffs,
+        debuffs = debuffs,
     })
 end
 
@@ -119,6 +170,19 @@ local function OnHealIntake(data)
         hpMax = UnitHealthMax(data.targetGUID)
     end
 
+    -- Resource + aura snapshot
+    local unit = P.FindUnitByName(data.target)
+    local manaAfter, manaMax, powerType
+    if unit then
+        manaAfter = UnitMana(unit)
+        manaMax = UnitManaMax(unit)
+        powerType = UnitPowerType(unit)
+    elseif data.targetGUID then
+        manaAfter = UnitMana(data.targetGUID)
+        manaMax = UnitManaMax(data.targetGUID)
+    end
+    local buffs, debuffs = SnapshotAuras(unit)
+
     PushIntake(data.target, {
         time = data.time or GetTime(),
         etype = "HEAL",
@@ -132,6 +196,11 @@ local function OnHealIntake(data)
         hpMax = hpMax,
         overkill = 0,
         missType = nil,
+        manaAfter = manaAfter,
+        manaMax = manaMax,
+        powerType = powerType,
+        buffs = buffs,
+        debuffs = debuffs,
     })
 end
 
@@ -140,6 +209,19 @@ local function OnMissIntake(data)
     if not data.target then return end
     local isPlayer = (data.target == UnitName("player"))
     if not isPlayer and not P.IsGroupMember(data.target) then return end
+
+    -- Resource + aura snapshot
+    local unit = P.FindUnitByName(data.target)
+    local manaAfter, manaMax, powerType
+    if unit then
+        manaAfter = UnitMana(unit)
+        manaMax = UnitManaMax(unit)
+        powerType = UnitPowerType(unit)
+    elseif data.targetGUID then
+        manaAfter = UnitMana(data.targetGUID)
+        manaMax = UnitManaMax(data.targetGUID)
+    end
+    local buffs, debuffs = SnapshotAuras(unit)
 
     PushIntake(data.target, {
         time = data.time or GetTime(),
@@ -154,6 +236,11 @@ local function OnMissIntake(data)
         hpMax = nil,
         overkill = 0,
         missType = data.missType or "MISS",
+        manaAfter = manaAfter,
+        manaMax = manaMax,
+        powerType = powerType,
+        buffs = buffs,
+        debuffs = debuffs,
     })
 end
 
@@ -231,13 +318,25 @@ local function OnDeath(data)
         duration = events[numEvents].time - events[1].time
     end
 
-    -- Class lookup
+    -- Class + powerType lookup
     local class = P.dataStore and P.dataStore.classes and P.dataStore.classes[data.name]
-    if not class and data.name then
-        local unit = P.FindUnitByName(data.name)
-        if unit then
-            local _, uClass = UnitClass(unit)
-            if uClass then class = uClass end
+    local deathUnit = P.FindUnitByName(data.name)
+    if not class and deathUnit then
+        local _, uClass = UnitClass(deathUnit)
+        if uClass then class = uClass end
+    end
+
+    -- PowerType: try unit query first, fallback to last event
+    local powerType = nil
+    if deathUnit then
+        powerType = UnitPowerType(deathUnit)
+    end
+    if not powerType then
+        for i = table.getn(events), 1, -1 do
+            if events[i].powerType then
+                powerType = events[i].powerType
+                break
+            end
         end
     end
 
@@ -253,6 +352,7 @@ local function OnDeath(data)
         killCrit = killCrit,
         hpMax = hpMax,
         overkill = overkill,
+        powerType = powerType,
         events = events,
         totalDmg = totalDmg,
         totalHeal = totalHeal,

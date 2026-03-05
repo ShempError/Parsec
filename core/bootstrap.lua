@@ -374,22 +374,31 @@ SlashCmdList["PARSEC"] = function(msg)
         -- Inject fake death records
         if pp.deathLog then
             local DL = pp.deathLog
+            -- Fake buff/debuff data for death recap testing
+            local fakeBuff1 = { texture = "Interface\\Icons\\Spell_Holy_WordFortitude", stacks = 0, auraID = 1243 }
+            local fakeBuff2 = { texture = "Interface\\Icons\\Spell_Nature_Regeneration", stacks = 0, auraID = 774 }
+            local fakeBuff3 = { texture = "Interface\\Icons\\Spell_Holy_GreaterBlessingofKings", stacks = 0, auraID = 25898 }
+            local fakeBuff4 = { texture = "Interface\\Icons\\Spell_Nature_Lightning", stacks = 5, auraID = 17364 }
+            local fakeDebuff1 = { texture = "Interface\\Icons\\Spell_Shadow_GatherShadows", stacks = 3, debuffType = "Magic", auraID = 22959 }
+            local fakeDebuff2 = { texture = "Interface\\Icons\\Spell_Fire_Immolation", stacks = 0, debuffType = nil, auraID = 20294 }
+            local fakeDebuff3 = { texture = "Interface\\Icons\\Spell_Fire_SoulBurn", stacks = 0, debuffType = "Curse", auraID = 11722 }
+
             local fakeDeaths = {
                 {
                     name = "Raksha", class = "ROGUE",
                     time = now - 8, timeFmt = date("%H:%M:%S"),
                     killedBy = "Ragnaros", killSpell = "Magma Blast",
                     killAmount = 4200, killSchool = 2, killCrit = true,
-                    hpMax = 4800, overkill = 620,
+                    hpMax = 4800, overkill = 620, powerType = 3,
                     totalDmg = 12400, totalHeal = 2100, duration = 6.2,
                     events = {
-                        { time = now - 14.2, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 1850, school = 2, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil },
-                        { time = now - 12.8, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 1100, school = 0, crit = false, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil },
-                        { time = now - 11.5, etype = "HEAL", source = "Rotfang", spell = "Flash Heal", amount = 2100, school = 1, crit = false, hpAfter = 4800, hpMax = 4800, overkill = 0, missType = nil },
-                        { time = now - 10.1, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3200, school = 2, crit = true, hpAfter = 1600, hpMax = 4800, overkill = 0, missType = nil },
-                        { time = now - 9.3, etype = "MISS", source = "Ragnaros", spell = "Melee", amount = 0, school = 0, crit = false, hpAfter = nil, hpMax = nil, overkill = 0, missType = "DODGE" },
-                        { time = now - 8.7, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2050, school = 2, crit = false, hpAfter = 0, hpMax = 4800, overkill = 450, missType = nil },
-                        { time = now - 8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 4200, school = 2, crit = true, hpAfter = 0, hpMax = 4800, overkill = 620, missType = nil },
+                        { time = now - 14.2, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 1850, school = 2, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 80, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4 }, debuffs = {} },
+                        { time = now - 12.8, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 1100, school = 0, crit = false, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 11.5, etype = "HEAL", source = "Rotfang", spell = "Flash Heal", amount = 2100, school = 1, crit = false, hpAfter = 4800, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 10.1, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3200, school = 2, crit = true, hpAfter = 1600, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 3, buffs = { fakeBuff1 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
+                        { time = now - 9.3, etype = "MISS", source = "Ragnaros", spell = "Melee", amount = 0, school = 0, crit = false, hpAfter = nil, hpMax = nil, overkill = 0, missType = "DODGE", manaAfter = 30, manaMax = 100, powerType = 3, buffs = { fakeBuff1 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
+                        { time = now - 8.7, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2050, school = 2, crit = false, hpAfter = 0, hpMax = 4800, overkill = 450, missType = nil, manaAfter = 20, manaMax = 100, powerType = 3, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
+                        { time = now - 8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 4200, school = 2, crit = true, hpAfter = 0, hpMax = 4800, overkill = 620, missType = nil, manaAfter = 10, manaMax = 100, powerType = 3, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
                     },
                 },
                 {
@@ -397,15 +406,15 @@ SlashCmdList["PARSEC"] = function(msg)
                     time = now - 22, timeFmt = date("%H:%M:%S"),
                     killedBy = "Ragnaros", killSpell = "Melee",
                     killAmount = 2800, killSchool = 0, killCrit = false,
-                    hpMax = 7200, overkill = 0,
+                    hpMax = 7200, overkill = 0, powerType = 1,
                     totalDmg = 18400, totalHeal = 4200, duration = 9.5,
                     events = {
-                        { time = now - 31.5, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2400, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil },
-                        { time = now - 29.8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 3800, school = 2, crit = true, hpAfter = 2000, hpMax = 7200, overkill = 0, missType = nil },
-                        { time = now - 28.1, etype = "HEAL", source = "Earthcall", spell = "Healing Wave", amount = 4200, school = 3, crit = false, hpAfter = 6200, hpMax = 7200, overkill = 0, missType = nil },
-                        { time = now - 26.3, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3400, school = 2, crit = false, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil },
-                        { time = now - 24.0, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2200, school = 0, crit = false, hpAfter = 600, hpMax = 7200, overkill = 0, missType = nil },
-                        { time = now - 22, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2800, school = 0, crit = false, hpAfter = 0, hpMax = 7200, overkill = 2200, missType = nil },
+                        { time = now - 31.5, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2400, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 72, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3 }, debuffs = {} },
+                        { time = now - 29.8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 3800, school = 2, crit = true, hpAfter = 2000, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 85, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 28.1, etype = "HEAL", source = "Earthcall", spell = "Healing Wave", amount = 4200, school = 3, crit = false, hpAfter = 6200, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 26.3, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3400, school = 2, crit = false, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 1, buffs = { fakeBuff1 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
+                        { time = now - 24.0, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2200, school = 0, crit = false, hpAfter = 600, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 1, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
+                        { time = now - 22, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2800, school = 0, crit = false, hpAfter = 0, hpMax = 7200, overkill = 2200, missType = nil, manaAfter = 30, manaMax = 100, powerType = 1, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
                     },
                 },
                 {
@@ -413,13 +422,13 @@ SlashCmdList["PARSEC"] = function(msg)
                     time = now - 35, timeFmt = date("%H:%M:%S"),
                     killedBy = "Son of Flame", killSpell = "Fireball",
                     killAmount = 3100, killSchool = 2, killCrit = false,
-                    hpMax = 4200, overkill = 200,
+                    hpMax = 4200, overkill = 200, powerType = 0,
                     totalDmg = 8600, totalHeal = 0, duration = 4.1,
                     events = {
-                        { time = now - 39.1, etype = "DAMAGE", source = "Son of Flame", spell = "Fire Nova", amount = 2200, school = 2, crit = false, hpAfter = 3300, hpMax = 4200, overkill = 0, missType = nil },
-                        { time = now - 37.4, etype = "DAMAGE", source = "Son of Flame", spell = "Melee", amount = 1300, school = 0, crit = false, hpAfter = 2000, hpMax = 4200, overkill = 0, missType = nil },
-                        { time = now - 36.0, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2000, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 0, missType = nil },
-                        { time = now - 35, etype = "DAMAGE", source = "Son of Flame", spell = "Fireball", amount = 3100, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 200, missType = nil },
+                        { time = now - 39.1, etype = "DAMAGE", source = "Son of Flame", spell = "Fire Nova", amount = 2200, school = 2, crit = false, hpAfter = 3300, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 3200, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff2 }, debuffs = {} },
+                        { time = now - 37.4, etype = "DAMAGE", source = "Son of Flame", spell = "Melee", amount = 1300, school = 0, crit = false, hpAfter = 2000, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2800, manaMax = 5400, powerType = 0, buffs = { fakeBuff1 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 36.0, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2000, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2400, manaMax = 5400, powerType = 0, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
+                        { time = now - 35, etype = "DAMAGE", source = "Son of Flame", spell = "Fireball", amount = 3100, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 200, missType = nil, manaAfter = 2000, manaMax = 5400, powerType = 0, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
                     },
                 },
             }

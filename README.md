@@ -42,9 +42,10 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Options panel** - dark themed UI with sidebar navigation (see below)
 - **Debug panel** - message log (last 500 messages) with copy-paste for bug reports
 - **Death Log** - track all deaths with per-player death counts in the main window
-- **Death Recap panel** - detailed breakdown of each death: damage timeline, healing received, HP bar, killing blow highlight, overkill calculation
-- **Death event timeline** - ring buffer captures the last 30 incoming damage/heal/miss events per player with HP snapshots
+- **Death Recap panel** - detailed post-mortem analysis with split layout: unit frame (HP bar, resource bar, buff/debuff icons) + clickable event log with spell icons
+- **Death event timeline** - ring buffer captures the last 30 incoming damage/heal/miss events per player with HP, resource, and aura snapshots
 - **Death navigation** - browse through all deaths per player with Prev/Next buttons, mousewheel scrolling
+- **Interactive event inspection** - click any event row to see the player's full state (HP, mana/rage/energy, buffs, debuffs) at that moment
 - **Death notifications** - chat notification when a group member dies (toggleable)
 - **Auto-popup death recap** - automatically show death recap when you die (toggleable)
 - **Module toggles** - enable/disable individual tracking modules (Damage, Healing, Deaths) from the options panel
@@ -119,6 +120,15 @@ Parsec/
 ```
 
 ## Changelog
+
+### v0.5.1 (2026-03-05)
+- **Death Recap v2** — complete redesign with split layout: unit frame + interactive event log
+- **Unit frame** — class icon, HP bar (green→red), class-dependent resource bar (Mana/Rage/Energy), buff and debuff icon grids with mouseover tooltips
+- **Clickable event rows** — click any event to inspect the player's full state (HP, resource, auras) at that timestamp
+- **Spell icons** — event rows display spell icons from SuperWoW SpellInfo, with school-color fallback
+- **Debuff type borders** — debuff icons show colored borders by type (Magic=blue, Curse=purple, Disease=brown, Poison=green)
+- **Aura snapshots** — each intake event captures all buffs/debuffs and resource values for timeline inspection
+- **Spell icon cache** — efficient caching of SpellInfo lookups
 
 ### v0.5.0 (2026-03-05)
 - **Death Log** — comprehensive death tracking with per-player death counts in the main window Deaths view
