@@ -110,10 +110,14 @@ local function SnapshotAuras(unit)
     return buffs, debuffs
 end
 
+DL.MELEE_ICON = "Interface\\Icons\\INV_Sword_04"
+DL.HEAL_FALLBACK_ICON = "Interface\\Icons\\Spell_Holy_LesserHeal"
+
 DL.spellIconCache = {}
 
 function DL.GetSpellIcon(spellID)
     if not spellID then return nil end
+    if spellID == 0 then return DL.MELEE_ICON end
     if DL.spellIconCache[spellID] then return DL.spellIconCache[spellID] end
     if SpellInfo then
         local name, rank, tex = SpellInfo(spellID)

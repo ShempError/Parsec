@@ -1139,8 +1139,11 @@ function D:UpdateEventRows()
             -- Store event data for tooltip
             row.eventData = e
 
-            -- Spell icon: try cached spellIcon, then SpellInfo lookup, then color fallback
+            -- Spell icon: try cached spellIcon, then SpellInfo lookup, then fallback
             local spellTex = e.spellIcon or (DL and DL.GetSpellIcon(e.spellID) or nil)
+            if not spellTex and e.etype == "HEAL" and DL then
+                spellTex = DL.HEAL_FALLBACK_ICON
+            end
             if spellTex then
                 row.spellIcon:SetTexture(spellTex)
                 row.spellIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
