@@ -184,6 +184,33 @@ function DS:GetDuration(segment)
 end
 
 ---------------------------------------------------------------------------
+-- Reusable sort pool (avoids table creation in GetSorted)
+-- Pre-allocated entry tables and sorted array are reused across calls.
+-- Safe because all callers consume the result inline before the next call.
+---------------------------------------------------------------------------
+
+local _sortPool = {}
+local _sortResult = {}
+local _sortCount = 0
+local _sortCompare = function(a, b) return a.value > b.value end
+
+local function GetPoolEntry(idx)
+    local e = _sortPool[idx]
+    if not e then
+        e = { name = nil, value = 0, raw = nil }
+        _sortPool[idx] = e
+    end
+    return e
+end
+
+local function ClearSortResult()
+    for i = 1, _sortCount do
+        _sortResult[i] = nil
+    end
+    _sortCount = 0
+end
+
+---------------------------------------------------------------------------
 -- Get sorted player list for a view
 -- viewType: "damage", "healing", "effheal", "drains", "dps", "hps"
 -- segment: "current" or "overall" (default: "current")
@@ -193,39 +220,53 @@ function DS:GetSorted(viewType, segment)
     -- Deaths view: uses P.deathLog counts instead of player data
     if viewType == "deaths" then
         local DL = P.deathLog
-        if not DL then return {}, 1, 0 end
+        if not DL then
+            ClearSortResult()
+            return _sortResult, 1, 0
+        end
         local segKey = segment or "current"
         local counts = DL.counts.current
         if segKey == "overall" then counts = DL.counts.overall end
         -- History segments: no death data (deaths are not per-history-segment)
-        if type(segment) == "number" then return {}, 1, 0 end
-
-        local sorted = {}
-        local raidTotal = 0
-        for name, count in pairs(counts) do
-            raidTotal = raidTotal + count
-            table.insert(sorted, {
-                name = name,
-                value = count,
-                raw = nil,
-            })
+        if type(segment) == "number" then
+            ClearSortResult()
+            return _sortResult, 1, 0
         end
-        table.sort(sorted, function(a, b) return a.value > b.value end)
-        return sorted, 1, raidTotal
+
+        local idx = 0
+        local raidTotal = 0
+        for name, c in pairs(counts) do
+            raidTotal = raidTotal + c
+            idx = idx + 1
+            local e = GetPoolEntry(idx)
+            e.name = name
+            e.value = c
+            e.raw = nil
+            _sortResult[idx] = e
+        end
+        for i = idx + 1, _sortCount do
+            _sortResult[i] = nil
+        end
+        _sortCount = idx
+        table.sort(_sortResult, _sortCompare)
+        return _sortResult, 1, raidTotal
     end
 
     local seg = self.current
     if segment == "overall" then
         seg = self.overall
     elseif type(segment) == "number" then
-        local entry = self.history[segment]
-        if not entry then return {}, 1, 0 end
-        seg = entry.segment
+        local histEntry = self.history[segment]
+        if not histEntry then
+            ClearSortResult()
+            return _sortResult, 1, 0
+        end
+        seg = histEntry.segment
     end
 
     local duration = self:GetDuration(segment)
 
-    local sorted = {}
+    local idx = 0
     local raidTotal = 0
 
     for name, data in pairs(seg.players) do
@@ -253,18 +294,25 @@ function DS:GetSorted(viewType, segment)
 
             if hasActivity then
                 raidTotal = raidTotal + value
-                table.insert(sorted, {
-                    name = name,
-                    value = value,
-                    raw = data,
-                })
+                idx = idx + 1
+                local e = GetPoolEntry(idx)
+                e.name = name
+                e.value = value
+                e.raw = data
+                _sortResult[idx] = e
             end
         end
     end
 
-    table.sort(sorted, function(a, b) return a.value > b.value end)
+    -- Nil out excess entries from previous call
+    for i = idx + 1, _sortCount do
+        _sortResult[i] = nil
+    end
+    _sortCount = idx
 
-    return sorted, duration, raidTotal
+    table.sort(_sortResult, _sortCompare)
+
+    return _sortResult, duration, raidTotal
 end
 
 ---------------------------------------------------------------------------

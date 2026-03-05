@@ -917,13 +917,17 @@ function P.UpdateParsecWindow(frame)
     totalBar.name:SetText("Total")
     totalBar.name:SetTextColor(0.85, 0.85, 0.85)
 
-    -- Format total value based on view type
-    if pc.viewType == "deaths" then
-        totalBar.value:SetText(string.format("%.0f", raidTotal))
-    elseif pc.viewType == "dps" or pc.viewType == "hps" then
-        totalBar.value:SetText(string.format("%.1f", raidTotal))
-    else
-        totalBar.value:SetText(P.FormatNumber(raidTotal))
+    -- Format total value based on view type (cached to avoid string allocation)
+    if frame._cTotalVal ~= raidTotal or frame._cTotalView ~= pc.viewType then
+        frame._cTotalVal = raidTotal
+        frame._cTotalView = pc.viewType
+        if pc.viewType == "deaths" then
+            totalBar.value:SetText(string.format("%.0f", raidTotal))
+        elseif pc.viewType == "dps" or pc.viewType == "hps" then
+            totalBar.value:SetText(string.format("%.1f", raidTotal))
+        else
+            totalBar.value:SetText(P.FormatNumber(raidTotal))
+        end
     end
     totalBar.playerName = nil
     totalBar.playerData = nil
@@ -961,17 +965,25 @@ function P.UpdateParsecWindow(frame)
         bar.name:SetText(entry.name)
         bar.name:SetTextColor(1, 1, 1)
 
-        local pctOfTotal = ""
-        if raidTotal > 0 then
-            pctOfTotal = " (" .. string.format("%.1f%%", (entry.value / raidTotal) * 100) .. ")"
-        end
+        -- Cache bar text — skip string formatting when value unchanged
+        if bar._cName ~= entry.name or bar._cValue ~= entry.value or bar._cTotal ~= raidTotal or bar._cView ~= pc.viewType then
+            bar._cName = entry.name
+            bar._cValue = entry.value
+            bar._cTotal = raidTotal
+            bar._cView = pc.viewType
 
-        if pc.viewType == "deaths" then
-            bar.value:SetText(string.format("%.0f", entry.value))
-        elseif pc.viewType == "dps" or pc.viewType == "hps" then
-            bar.value:SetText(string.format("%.1f", entry.value) .. pctOfTotal)
-        else
-            bar.value:SetText(P.FormatNumber(entry.value) .. pctOfTotal)
+            local pctOfTotal = ""
+            if raidTotal > 0 then
+                pctOfTotal = " (" .. string.format("%.1f%%", (entry.value / raidTotal) * 100) .. ")"
+            end
+
+            if pc.viewType == "deaths" then
+                bar.value:SetText(string.format("%.0f", entry.value))
+            elseif pc.viewType == "dps" or pc.viewType == "hps" then
+                bar.value:SetText(string.format("%.1f", entry.value) .. pctOfTotal)
+            else
+                bar.value:SetText(P.FormatNumber(entry.value) .. pctOfTotal)
+            end
         end
 
         bar.playerName = entry.name
