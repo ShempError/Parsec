@@ -12,6 +12,7 @@ core\combat-state.lua
 core\data-store.lua
 core\debug.lua
 core\settings.lua
+core\consumables.lua
 modules\damage.lua
 modules\healing.lua
 modules\death.lua

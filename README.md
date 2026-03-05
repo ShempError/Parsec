@@ -108,6 +108,7 @@ Parsec/
     data-store.lua    - Player data aggregation, sorting, segments
     debug.lua         - Debug mode toggle, stats, event dump
     settings.lua      - Settings defaults, load/save/apply
+    consumables.lua   - SpellID→ItemID mappings for potions, elixirs, flasks, etc.
     bootstrap.lua     - Initialization, slash commands, event wiring
   modules/
     damage.lua        - Damage event handlers

@@ -488,8 +488,8 @@ SlashCmdList["PARSEC"] = function(msg)
                         if info.icon then events[j].spellIcon = info.icon end
                         if info.id then events[j].spellID = info.id end
                         -- Pre-fill consumable name cache for fake data
-                        if info.itemName and info.id and DL then
-                            DL.consumableNameCache[info.id] = info.itemName
+                        if info.itemName and info.id and P.consumables then
+                            P.consumables.nameCache[info.id] = info.itemName
                         end
                     end
                     if events[j].etype == "OUTGOING" then
