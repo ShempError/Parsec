@@ -11,7 +11,7 @@ P.deathLog = {}
 local DL = P.deathLog
 
 -- Constants
-DL.INTAKE_SIZE = 30
+DL.INTAKE_SIZE = 50
 DL.MAX_RECORDS = 100
 
 -- Data stores
@@ -283,6 +283,58 @@ local function OnMissIntake(data)
         hpMax = nil,
         overkill = 0,
         missType = data.missType or "MISS",
+        manaAfter = manaAfter,
+        manaMax = manaMax,
+        powerType = powerType,
+        buffs = buffs,
+        debuffs = debuffs,
+        raidTarget = raidTarget,
+    })
+end
+
+local function OnOutgoingDamage(data)
+    if P.settings.modules and not P.settings.modules.deaths then return end
+    -- Track outgoing damage FROM group members (to show in their death timeline)
+    if not data.source then return end
+    local isPlayer = (data.source == UnitName("player"))
+    if not isPlayer and not P.IsGroupMember(data.source) then return end
+
+    -- Don't record self-damage as outgoing (already tracked as incoming)
+    if data.source == data.target then return end
+
+    -- HP/resource snapshot of the SOURCE (the player who dealt the damage)
+    local unit = P.FindUnitByName(data.source)
+    local hpAfter, hpMax, manaAfter, manaMax, powerType
+    if unit then
+        hpAfter = UnitHealth(unit)
+        hpMax = UnitHealthMax(unit)
+        manaAfter = UnitMana(unit)
+        manaMax = UnitManaMax(unit)
+        powerType = UnitPowerType(unit)
+    elseif data.sourceGUID then
+        hpAfter = UnitHealth(data.sourceGUID)
+        hpMax = UnitHealthMax(data.sourceGUID)
+        manaAfter = UnitMana(data.sourceGUID)
+        manaMax = UnitManaMax(data.sourceGUID)
+    end
+    local buffs, debuffs = SnapshotAuras(unit)
+
+    local raidTarget = FindSourceRaidTarget(data.target)
+
+    PushIntake(data.source, {
+        time = data.time or GetTime(),
+        etype = "OUTGOING",
+        source = data.source,
+        target = data.target or "?",
+        spell = data.spellName or "Melee",
+        spellID = data.spellID,
+        amount = data.amount or 0,
+        school = data.school or 0,
+        crit = data.crit or false,
+        hpAfter = hpAfter,
+        hpMax = hpMax,
+        overkill = 0,
+        missType = nil,
         manaAfter = manaAfter,
         manaMax = manaMax,
         powerType = powerType,
@@ -571,6 +623,7 @@ end
 ---------------------------------------------------------------------------
 
 P.eventBus:Register("DAMAGE", OnDamageIntake)
+P.eventBus:Register("DAMAGE", OnOutgoingDamage)
 P.eventBus:Register("HEAL", OnHealIntake)
 P.eventBus:Register("MISS", OnMissIntake)
 P.eventBus:Register("BUFF", OnBuffIntake)

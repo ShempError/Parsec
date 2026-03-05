@@ -43,7 +43,8 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Debug panel** - message log (last 500 messages) with copy-paste for bug reports
 - **Death Log** - track all deaths with per-player death counts in the main window
 - **Death Recap panel** - detailed post-mortem analysis with split layout: unit frame (HP bar, resource bar, buff/debuff icons) + clickable event log with spell icons
-- **Death event timeline** - ring buffer captures the last 30 incoming damage/heal/miss events per player with HP, resource, and aura snapshots
+- **Outgoing attack tracking** - damage dealt by the dying player shown in orange with "spell -> target" format, clearly distinguishable from incoming damage
+- **Death event timeline** - ring buffer captures the last 50 combat events per player (incoming damage, heals, misses, buffs, outgoing attacks) with HP, resource, and aura snapshots
 - **Death navigation** - browse through all deaths per player with Prev/Next buttons, mousewheel scrolling
 - **Interactive event inspection** - click any event row to see the player's full state (HP, mana/rage/energy, buffs, debuffs) at that moment
 - **Death notifications** - chat notification when a group member dies (toggleable)
@@ -136,6 +137,7 @@ Parsec/
 - **Self-cast/buff tracking** — Shield Wall, Evasion and other self-buffs tracked as BUFF events in the death timeline
 - **Spell icon cache** — efficient caching of SpellInfo lookups
 - **Buff name scanning** — tooltip-scanning fallback ensures buff/debuff names always display correctly, even when SpellInfo is unavailable
+- **Outgoing attack tracking** — damage dealt by the dying player shown in orange ("spell -> target" format) with OUT/CRIT flag, clearly distinguishable from incoming damage; ring buffer increased from 30 to 50 events
 - **Granular death notifications** — master toggle + separate Own/Party/Raid sub-toggles with auto-disable when master is off
 
 ### v0.5.0 (2026-03-05)

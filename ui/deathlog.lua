@@ -56,6 +56,7 @@ D.KILL_BG    = { 0.4, 0.08, 0.08, 0.6 }
 D.HEAL_COLOR = { 0.2, 1, 0.2 }
 D.MISS_COLOR = { 0.7, 0.7, 0.7 }
 D.BUFF_COLOR = { 1, 0.82, 0 }  -- gold for self-casts/buffs
+D.OUTGOING_COLOR = { 1, 0.6, 0.2 }  -- orange for outgoing attacks
 D.SELECT_BG  = { 0, 0.5, 0.7, 0.2 }
 
 D.POWER_COLORS = {
@@ -958,8 +959,17 @@ function D:ShowEventTooltip(frame, e)
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine("-- Death Recap --", D.CYAN[1], D.CYAN[2], D.CYAN[3])
 
-    -- Source + raid target
-    if e.source and e.source ~= "?" then
+    -- Source + raid target (for OUTGOING: show target instead)
+    if e.etype == "OUTGOING" then
+        if e.target and e.target ~= "?" then
+            local tgtLine = "-> " .. e.target
+            if e.raidTarget and e.raidTarget >= 1 and e.raidTarget <= 8 then
+                local rtNames = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" }
+                tgtLine = tgtLine .. " {" .. rtNames[e.raidTarget] .. "}"
+            end
+            GameTooltip:AddLine(tgtLine, D.OUTGOING_COLOR[1], D.OUTGOING_COLOR[2], D.OUTGOING_COLOR[3])
+        end
+    elseif e.source and e.source ~= "?" then
         local srcLine = e.source
         if e.raidTarget and e.raidTarget >= 1 and e.raidTarget <= 8 then
             local rtNames = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" }
@@ -978,6 +988,13 @@ function D:ShowEventTooltip(frame, e)
         GameTooltip:AddLine(text, sc.r, sc.g, sc.b)
         if e.overkill and e.overkill > 0 then
             GameTooltip:AddLine("Overkill: " .. P.FormatNumber(e.overkill), 0.8, 0.3, 0.3)
+        end
+    elseif e.etype == "OUTGOING" then
+        local text = P.FormatNumber(e.amount) .. " " .. schoolName .. " damage dealt"
+        if e.crit then text = text .. " (Critical)" end
+        GameTooltip:AddLine(text, D.OUTGOING_COLOR[1], D.OUTGOING_COLOR[2], D.OUTGOING_COLOR[3])
+        if e.target and e.target ~= "?" then
+            GameTooltip:AddLine("Target: " .. e.target, 0.7, 0.7, 0.7)
         end
     elseif e.etype == "HEAL" then
         local text = "+" .. P.FormatNumber(e.amount) .. " " .. schoolName .. " healing"
@@ -1135,6 +1152,8 @@ function D:UpdateEventRows()
                     row.spellIcon:SetTexture(D.MISS_COLOR[1], D.MISS_COLOR[2], D.MISS_COLOR[3], 1)
                 elseif e.etype == "BUFF" then
                     row.spellIcon:SetTexture(D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3], 1)
+                elseif e.etype == "OUTGOING" then
+                    row.spellIcon:SetTexture(D.OUTGOING_COLOR[1], D.OUTGOING_COLOR[2], D.OUTGOING_COLOR[3], 1)
                 else
                     row.spellIcon:SetTexture(ssc.r, ssc.g, ssc.b, 1)
                 end
@@ -1149,9 +1168,14 @@ function D:UpdateEventRows()
                 row.raidIcon:Hide()
             end
 
-            -- Spell name + source
+            -- Spell name + source/target
             local spellSource = e.spell
-            if e.etype ~= "BUFF" and e.source and e.source ~= "?" then
+            if e.etype == "OUTGOING" then
+                -- Show "spell -> target" for outgoing attacks
+                if e.target and e.target ~= "?" then
+                    spellSource = spellSource .. " -> " .. e.target
+                end
+            elseif e.etype ~= "BUFF" and e.source and e.source ~= "?" then
                 spellSource = spellSource .. " (" .. e.source .. ")"
             end
             row.spellText:SetText(spellSource)
@@ -1169,6 +1193,10 @@ function D:UpdateEventRows()
                 row.amountText:SetText("")
                 row.amountText:SetTextColor(D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3])
                 row.spellText:SetTextColor(D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3])
+            elseif e.etype == "OUTGOING" then
+                row.amountText:SetText(P.FormatNumber(e.amount))
+                row.amountText:SetTextColor(D.OUTGOING_COLOR[1], D.OUTGOING_COLOR[2], D.OUTGOING_COLOR[3])
+                row.spellText:SetTextColor(D.OUTGOING_COLOR[1], D.OUTGOING_COLOR[2], D.OUTGOING_COLOR[3])
             else
                 row.amountText:SetText(P.FormatNumber(e.amount))
                 row.amountText:SetTextColor(1, 1, 1)
@@ -1182,6 +1210,14 @@ function D:UpdateEventRows()
             elseif e.etype == "BUFF" then
                 row.flagText:SetText("BUFF")
                 row.flagText:SetTextColor(D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3])
+            elseif e.etype == "OUTGOING" then
+                if e.crit then
+                    row.flagText:SetText("CRIT")
+                    row.flagText:SetTextColor(D.OUTGOING_COLOR[1], D.OUTGOING_COLOR[2], D.OUTGOING_COLOR[3])
+                else
+                    row.flagText:SetText("OUT")
+                    row.flagText:SetTextColor(D.OUTGOING_COLOR[1], D.OUTGOING_COLOR[2], D.OUTGOING_COLOR[3])
+                end
             elseif e.crit then
                 row.flagText:SetText("CRIT")
                 row.flagText:SetTextColor(1, 0.5, 0)

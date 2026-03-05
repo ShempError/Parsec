@@ -408,8 +408,10 @@ SlashCmdList["PARSEC"] = function(msg)
                     totalDmg = 12400, totalHeal = 2100, duration = 6.2,
                     events = {
                         { time = now - 14.2, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 1850, school = 2, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 80, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff14, fakeBuff15, fakeBuff17 }, debuffs = {} },
+                        { time = now - 13.8, etype = "OUTGOING", source = "Raksha", target = "Ragnaros", spell = "Sinister Strike", spellID = 11294, amount = 620, school = 0, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 35, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff14, fakeBuff15, fakeBuff17 }, debuffs = {} },
                         { time = now - 13.5, etype = "BUFF", source = "Raksha", spell = "Evasion", spellID = 5277, amount = 0, school = 0, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 55, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff14, fakeBuff15, fakeBuff17, fakeBuffEvasion }, debuffs = {} },
                         { time = now - 12.8, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 1100, school = 0, crit = false, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff14, fakeBuff15, fakeBuff17, fakeBuffEvasion }, debuffs = { fakeDebuff2 } },
+                        { time = now - 12.2, etype = "OUTGOING", source = "Raksha", target = "Ragnaros", spell = "Eviscerate", spellID = 11300, amount = 1850, school = 0, crit = true, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 30, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff14, fakeBuff15, fakeBuffEvasion }, debuffs = { fakeDebuff2 } },
                         { time = now - 11.5, etype = "HEAL", source = "Rotfang", spell = "Flash Heal", amount = 2100, school = 1, crit = false, hpAfter = 4800, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff14, fakeBuff15, fakeBuff12 }, debuffs = { fakeDebuff2 } },
                         { time = now - 10.1, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3200, school = 2, crit = true, hpAfter = 1600, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
                         { time = now - 9.3, etype = "MISS", source = "Ragnaros", spell = "Melee", amount = 0, school = 0, crit = false, hpAfter = nil, hpMax = nil, overkill = 0, missType = "DODGE", manaAfter = 30, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff5, fakeBuff14 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
@@ -426,10 +428,12 @@ SlashCmdList["PARSEC"] = function(msg)
                     totalDmg = 18400, totalHeal = 4200, duration = 9.5,
                     events = {
                         { time = now - 31.5, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2400, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 72, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff12, fakeBuff13, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17 }, debuffs = {} },
+                        { time = now - 31.0, etype = "OUTGOING", source = "Krag", target = "Ragnaros", spell = "Heroic Strike", spellID = 11567, amount = 950, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 57, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff12, fakeBuff13, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17 }, debuffs = {} },
                         { time = now - 30.5, etype = "BUFF", source = "Krag", spell = "Shield Wall", spellID = 871, amount = 0, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 72, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff12, fakeBuff13, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17, fakeBuffSW }, debuffs = {} },
                         { time = now - 29.8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 3800, school = 2, crit = true, hpAfter = 2000, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 85, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17, fakeBuffSW }, debuffs = { fakeDebuff2 } },
                         { time = now - 28.1, etype = "HEAL", source = "Earthcall", spell = "Healing Wave", amount = 4200, school = 3, crit = false, hpAfter = 6200, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff5, fakeBuff6, fakeBuff8, fakeBuff9, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff2 } },
                         { time = now - 26.3, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3400, school = 2, crit = false, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
+                        { time = now - 25.5, etype = "OUTGOING", source = "Krag", target = "Ragnaros", spell = "Execute", spellID = 20662, amount = 2150, school = 0, crit = true, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 15, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
                         { time = now - 24.0, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2200, school = 0, crit = false, hpAfter = 600, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff5 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
                         { time = now - 22, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2800, school = 0, crit = false, hpAfter = 0, hpMax = 7200, overkill = 2200, missType = nil, manaAfter = 30, manaMax = 100, powerType = 1, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
                     },
@@ -443,6 +447,7 @@ SlashCmdList["PARSEC"] = function(msg)
                     totalDmg = 8600, totalHeal = 0, duration = 4.1,
                     events = {
                         { time = now - 39.1, etype = "DAMAGE", source = "Son of Flame", spell = "Fire Nova", amount = 2200, school = 2, crit = false, hpAfter = 3300, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 3200, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff2, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff10, fakeBuff15, fakeBuff16 }, debuffs = {} },
+                        { time = now - 38.5, etype = "OUTGOING", source = "Hexweaver", target = "Son of Flame", spell = "Lightning Bolt", spellID = 10391, amount = 740, school = 3, crit = false, hpAfter = 3300, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2900, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff2, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff10, fakeBuff15, fakeBuff16 }, debuffs = {} },
                         { time = now - 37.4, etype = "DAMAGE", source = "Son of Flame", spell = "Melee", amount = 1300, school = 0, crit = false, hpAfter = 2000, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2800, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff15 }, debuffs = { fakeDebuff2 } },
                         { time = now - 36.0, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2000, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2400, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff5 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
                         { time = now - 35, etype = "DAMAGE", source = "Son of Flame", spell = "Fireball", amount = 3100, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 200, missType = nil, manaAfter = 2000, manaMax = 5400, powerType = 0, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
@@ -461,6 +466,11 @@ SlashCmdList["PARSEC"] = function(msg)
                 ["Fireball"]           = { icon = "Interface\\Icons\\Spell_Fire_FlameBolt", id = 15228 },
                 ["Shield Wall"]        = { icon = "Interface\\Icons\\Ability_Warrior_ShieldWall", id = 871 },
                 ["Evasion"]            = { icon = "Interface\\Icons\\Spell_Shadow_ShadowWard", id = 5277 },
+                ["Sinister Strike"]    = { icon = "Interface\\Icons\\Spell_Shadow_RitualOfSacrifice", id = 11294 },
+                ["Eviscerate"]         = { icon = "Interface\\Icons\\Ability_Rogue_Eviscerate", id = 11300 },
+                ["Heroic Strike"]      = { icon = "Interface\\Icons\\Ability_Rogue_Ambush", id = 11567 },
+                ["Execute"]            = { icon = "Interface\\Icons\\INV_Sword_48", id = 20662 },
+                ["Lightning Bolt"]     = { icon = "Interface\\Icons\\Spell_Nature_Lightning", id = 10391 },
             }
             local fakeRaidTargets = {
                 ["Ragnaros"] = 8,       -- Skull
@@ -474,7 +484,11 @@ SlashCmdList["PARSEC"] = function(msg)
                         events[j].spellIcon = info.icon
                         if info.id then events[j].spellID = info.id end
                     end
-                    events[j].raidTarget = fakeRaidTargets[events[j].source]
+                    if events[j].etype == "OUTGOING" then
+                        events[j].raidTarget = fakeRaidTargets[events[j].target]
+                    else
+                        events[j].raidTarget = fakeRaidTargets[events[j].source]
+                    end
                 end
             end
             DL:AddFakeDeaths(fakeDeaths)
