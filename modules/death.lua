@@ -84,7 +84,7 @@ local function SnapshotAuras(unit)
         if not tex then break end
         table.insert(buffs, { texture = tex, stacks = stacks or 0, auraID = auraID })
     end
-    for i = 1, 16 do
+    for i = 1, 64 do
         local tex, stacks, debuffType, auraID = UnitDebuff(unit, i)
         if not tex then break end
         table.insert(debuffs, { texture = tex, stacks = stacks or 0, debuffType = debuffType, auraID = auraID })
@@ -101,6 +101,27 @@ function DL.GetSpellIcon(spellID)
         local name, rank, tex = SpellInfo(spellID)
         if tex then DL.spellIconCache[spellID] = tex end
         return tex
+    end
+    return nil
+end
+
+local function FindSourceRaidTarget(sourceName)
+    if not sourceName or not GetRaidTargetIndex then return nil end
+    if UnitName("target") == sourceName then return GetRaidTargetIndex("target") end
+    if UnitName("targettarget") == sourceName then return GetRaidTargetIndex("targettarget") end
+    local n = GetNumRaidMembers()
+    if n > 0 then
+        for i = 1, n do
+            if UnitName("raid" .. i .. "target") == sourceName then
+                return GetRaidTargetIndex("raid" .. i .. "target")
+            end
+        end
+    else
+        for i = 1, 4 do
+            if UnitName("party" .. i .. "target") == sourceName then
+                return GetRaidTargetIndex("party" .. i .. "target")
+            end
+        end
     end
     return nil
 end
@@ -136,6 +157,8 @@ local function OnDamageIntake(data)
     end
     local buffs, debuffs = SnapshotAuras(unit)
 
+    local raidTarget = FindSourceRaidTarget(data.source)
+
     PushIntake(data.target, {
         time = data.time or GetTime(),
         etype = "DAMAGE",
@@ -154,6 +177,7 @@ local function OnDamageIntake(data)
         powerType = powerType,
         buffs = buffs,
         debuffs = debuffs,
+        raidTarget = raidTarget,
     })
 end
 
@@ -183,6 +207,8 @@ local function OnHealIntake(data)
     end
     local buffs, debuffs = SnapshotAuras(unit)
 
+    local raidTarget = FindSourceRaidTarget(data.source)
+
     PushIntake(data.target, {
         time = data.time or GetTime(),
         etype = "HEAL",
@@ -201,6 +227,7 @@ local function OnHealIntake(data)
         powerType = powerType,
         buffs = buffs,
         debuffs = debuffs,
+        raidTarget = raidTarget,
     })
 end
 
@@ -223,6 +250,8 @@ local function OnMissIntake(data)
     end
     local buffs, debuffs = SnapshotAuras(unit)
 
+    local raidTarget = FindSourceRaidTarget(data.source)
+
     PushIntake(data.target, {
         time = data.time or GetTime(),
         etype = "MISS",
@@ -236,6 +265,48 @@ local function OnMissIntake(data)
         hpMax = nil,
         overkill = 0,
         missType = data.missType or "MISS",
+        manaAfter = manaAfter,
+        manaMax = manaMax,
+        powerType = powerType,
+        buffs = buffs,
+        debuffs = debuffs,
+        raidTarget = raidTarget,
+    })
+end
+
+local function OnBuffIntake(data)
+    if P.settings.modules and not P.settings.modules.deaths then return end
+    -- Only track buff gains (not removals) on group members
+    if not data.gained then return end
+    if not data.target then return end
+    local isPlayer = (data.target == UnitName("player"))
+    if not isPlayer and not P.IsGroupMember(data.target) then return end
+
+    -- HP/resource snapshot
+    local unit = P.FindUnitByName(data.target)
+    local hpAfter, hpMax, manaAfter, manaMax, powerType
+    if unit then
+        hpAfter = UnitHealth(unit)
+        hpMax = UnitHealthMax(unit)
+        manaAfter = UnitMana(unit)
+        manaMax = UnitManaMax(unit)
+        powerType = UnitPowerType(unit)
+    end
+    local buffs, debuffs = SnapshotAuras(unit)
+
+    PushIntake(data.target, {
+        time = data.time or GetTime(),
+        etype = "BUFF",
+        source = data.target,  -- self-cast
+        spell = data.spellName or "Buff",
+        spellID = data.spellID,
+        amount = 0,
+        school = 0,
+        crit = false,
+        hpAfter = hpAfter,
+        hpMax = hpMax,
+        overkill = 0,
+        missType = nil,
         manaAfter = manaAfter,
         manaMax = manaMax,
         powerType = powerType,
@@ -471,4 +542,5 @@ end
 P.eventBus:Register("DAMAGE", OnDamageIntake)
 P.eventBus:Register("HEAL", OnHealIntake)
 P.eventBus:Register("MISS", OnMissIntake)
+P.eventBus:Register("BUFF", OnBuffIntake)
 P.eventBus:Register("DEATH", OnDeath)

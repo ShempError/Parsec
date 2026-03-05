@@ -35,8 +35,8 @@ D.BAR_H = 14
 D.ROW_H = 20
 D.VISIBLE_ROWS = 10
 D.NAV_H = 24
-D.MAX_BUFFS = 16
-D.MAX_DEBUFFS = 16
+D.MAX_BUFF_ICONS = 32   -- matches TurtleWoW buff limit, wraps into 2 rows
+D.MAX_DEBUFF_ICONS = 32 -- display limit for debuffs (TW allows 64, overflow for rest)
 D.AURA_SIZE = 20
 D.AURA_GAP = 2
 D.SPELL_ICON_SIZE = 16
@@ -55,6 +55,7 @@ D.GRAY       = { 0.5, 0.5, 0.5 }
 D.KILL_BG    = { 0.4, 0.08, 0.08, 0.6 }
 D.HEAL_COLOR = { 0.2, 1, 0.2 }
 D.MISS_COLOR = { 0.7, 0.7, 0.7 }
+D.BUFF_COLOR = { 1, 0.82, 0 }  -- gold for self-casts/buffs
 D.SELECT_BG  = { 0, 0.5, 0.7, 0.2 }
 
 D.POWER_COLORS = {
@@ -82,6 +83,11 @@ D.DEBUFF_COLORS = {
     Curse   = { r = 0.6, g = 0.0, b = 1.0 },
     Disease = { r = 0.6, g = 0.4, b = 0.0 },
     Poison  = { r = 0.0, g = 0.6, b = 0.0 },
+}
+
+D.SCHOOL_NAMES = {
+    [0] = "Physical", [1] = "Holy", [2] = "Fire",
+    [3] = "Nature", [4] = "Frost", [5] = "Shadow", [6] = "Arcane",
 }
 
 ---------------------------------------------------------------------------
@@ -227,11 +233,15 @@ local function CreateUnitFrame(parent, anchor)
     uf.buffRow:SetPoint("TOPLEFT", uf.resBar, "BOTTOMLEFT", 0, -6)
     uf.buffRow:SetPoint("RIGHT", uf, "RIGHT", -D.PADDING, 0)
 
-    for i = 1, D.MAX_BUFFS do
+    D.AURA_PER_ROW = math.floor((D.WIDTH - 2 * D.PADDING) / (D.AURA_SIZE + D.AURA_GAP))
+
+    for i = 1, D.MAX_BUFF_ICONS do
         local icon = CreateFrame("Frame", nil, uf.buffRow)
         icon:SetWidth(D.AURA_SIZE)
         icon:SetHeight(D.AURA_SIZE)
-        icon:SetPoint("LEFT", uf.buffRow, "LEFT", (i - 1) * (D.AURA_SIZE + D.AURA_GAP), 0)
+        local col = math.mod(i - 1, D.AURA_PER_ROW)
+        local row = math.floor((i - 1) / D.AURA_PER_ROW)
+        icon:SetPoint("TOPLEFT", uf.buffRow, "TOPLEFT", col * (D.AURA_SIZE + D.AURA_GAP), -row * (D.AURA_SIZE + D.AURA_GAP))
 
         icon.tex = icon:CreateTexture(nil, "ARTWORK")
         icon.tex:SetAllPoints(icon)
@@ -246,16 +256,8 @@ local function CreateUnitFrame(parent, anchor)
         icon.stackCount = 0
         icon:EnableMouse(true)
         icon:SetScript("OnEnter", function()
-            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-            if this.auraID and SpellInfo then
-                local name, rank = SpellInfo(this.auraID)
-                GameTooltip:AddLine(name or "Unknown", 1, 1, 1)
-                if rank and rank ~= "" then
-                    GameTooltip:AddLine(rank, 0.7, 0.7, 0.7)
-                end
-            else
-                GameTooltip:AddLine("Unknown Buff", 0.7, 0.7, 0.7)
-            end
+            GameTooltip:SetOwner(this, "ANCHOR_CURSOR")
+            D:AddSpellInfoLines(this.auraID, "Unknown Buff")
             if this.stackCount and this.stackCount > 1 then
                 GameTooltip:AddLine(this.stackCount .. " stacks", 0.6, 0.6, 0.6)
             end
@@ -266,17 +268,50 @@ local function CreateUnitFrame(parent, anchor)
         D.buffIcons[i] = icon
     end
 
+    -- Buff overflow indicator
+    D.buffOverflow = CreateFrame("Frame", nil, uf.buffRow)
+    D.buffOverflow:SetWidth(30)
+    D.buffOverflow:SetHeight(D.AURA_SIZE)
+    D.buffOverflow:EnableMouse(true)
+    D.buffOverflow.text = D.buffOverflow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    D.buffOverflow.text:SetPoint("LEFT", D.buffOverflow, "LEFT", 2, 0)
+    D.buffOverflow.text:SetTextColor(0.7, 0.7, 0.7)
+    D.buffOverflow.text:SetShadowColor(0, 0, 0, 1)
+    D.buffOverflow.text:SetShadowOffset(1, -1)
+    D.buffOverflow.hiddenBuffs = {}
+    D.buffOverflow:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_CURSOR")
+        GameTooltip:AddLine("Hidden Buffs", 1, 0.82, 0)
+        local hidden = D.buffOverflow.hiddenBuffs
+        for i = 1, table.getn(hidden) do
+            local b = hidden[i]
+            local name = "Unknown"
+            if b.auraID and SpellInfo then
+                local n = SpellInfo(b.auraID)
+                if n then name = n end
+            end
+            local stackStr = ""
+            if b.stacks and b.stacks > 1 then stackStr = " (" .. b.stacks .. ")" end
+            GameTooltip:AddLine(name .. stackStr, 1, 1, 1)
+        end
+        GameTooltip:Show()
+    end)
+    D.buffOverflow:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    D.buffOverflow:Hide()
+
     -- Debuff row
     uf.debuffRow = CreateFrame("Frame", nil, uf)
     uf.debuffRow:SetHeight(D.AURA_SIZE)
     uf.debuffRow:SetPoint("TOPLEFT", uf.buffRow, "BOTTOMLEFT", 0, -D.AURA_GAP)
     uf.debuffRow:SetPoint("RIGHT", uf, "RIGHT", -D.PADDING, 0)
 
-    for i = 1, D.MAX_DEBUFFS do
+    for i = 1, D.MAX_DEBUFF_ICONS do
         local icon = CreateFrame("Frame", nil, uf.debuffRow)
         icon:SetWidth(D.AURA_SIZE)
         icon:SetHeight(D.AURA_SIZE)
-        icon:SetPoint("LEFT", uf.debuffRow, "LEFT", (i - 1) * (D.AURA_SIZE + D.AURA_GAP), 0)
+        local col = math.mod(i - 1, D.AURA_PER_ROW)
+        local row = math.floor((i - 1) / D.AURA_PER_ROW)
+        icon:SetPoint("TOPLEFT", uf.debuffRow, "TOPLEFT", col * (D.AURA_SIZE + D.AURA_GAP), -row * (D.AURA_SIZE + D.AURA_GAP))
 
         -- Border texture (colored by debuff type)
         icon.border = icon:CreateTexture(nil, "BORDER")
@@ -299,16 +334,8 @@ local function CreateUnitFrame(parent, anchor)
         icon.debuffType = nil
         icon:EnableMouse(true)
         icon:SetScript("OnEnter", function()
-            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-            if this.auraID and SpellInfo then
-                local name, rank = SpellInfo(this.auraID)
-                GameTooltip:AddLine(name or "Unknown", 1, 1, 1)
-                if rank and rank ~= "" then
-                    GameTooltip:AddLine(rank, 0.7, 0.7, 0.7)
-                end
-            else
-                GameTooltip:AddLine("Unknown Debuff", 0.7, 0.7, 0.7)
-            end
+            GameTooltip:SetOwner(this, "ANCHOR_CURSOR")
+            D:AddSpellInfoLines(this.auraID, "Unknown Debuff")
             if this.debuffType then
                 GameTooltip:AddLine(this.debuffType, 0.6, 0.6, 0.6)
             end
@@ -321,6 +348,39 @@ local function CreateUnitFrame(parent, anchor)
         icon:Hide()
         D.debuffIcons[i] = icon
     end
+
+    -- Debuff overflow indicator
+    D.debuffOverflow = CreateFrame("Frame", nil, uf.debuffRow)
+    D.debuffOverflow:SetWidth(30)
+    D.debuffOverflow:SetHeight(D.AURA_SIZE)
+    D.debuffOverflow:EnableMouse(true)
+    D.debuffOverflow.text = D.debuffOverflow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    D.debuffOverflow.text:SetPoint("LEFT", D.debuffOverflow, "LEFT", 2, 0)
+    D.debuffOverflow.text:SetTextColor(0.7, 0.7, 0.7)
+    D.debuffOverflow.text:SetShadowColor(0, 0, 0, 1)
+    D.debuffOverflow.text:SetShadowOffset(1, -1)
+    D.debuffOverflow.hiddenDebuffs = {}
+    D.debuffOverflow:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_CURSOR")
+        GameTooltip:AddLine("Hidden Debuffs", 1, 0, 0)
+        local hidden = D.debuffOverflow.hiddenDebuffs
+        for i = 1, table.getn(hidden) do
+            local db = hidden[i]
+            local name = "Unknown"
+            if db.auraID and SpellInfo then
+                local n = SpellInfo(db.auraID)
+                if n then name = n end
+            end
+            local stackStr = ""
+            if db.stacks and db.stacks > 1 then stackStr = " (" .. db.stacks .. ")" end
+            local suffix = ""
+            if db.debuffType then suffix = " [" .. db.debuffType .. "]" end
+            GameTooltip:AddLine(name .. stackStr .. suffix, 1, 1, 1)
+        end
+        GameTooltip:Show()
+    end)
+    D.debuffOverflow:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    D.debuffOverflow:Hide()
 
     -- Kill info line
     uf.killInfo = uf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -390,17 +450,73 @@ local function CreateEventRow(parent, index)
     row.spellIcon = row:CreateTexture(nil, "ARTWORK")
     row.spellIcon:SetWidth(D.SPELL_ICON_SIZE)
     row.spellIcon:SetHeight(D.SPELL_ICON_SIZE)
-    row.spellIcon:SetPoint("LEFT", row.timeText, "RIGHT", 6, 0)
+    row.spellIcon:SetPoint("LEFT", row.timeText, "RIGHT", 4, 0)
 
-    -- Spell name + source
+    -- Raid target icon (14x14, fixed column between spell icon and spell text)
+    row.raidIcon = row:CreateTexture(nil, "OVERLAY")
+    row.raidIcon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+    row.raidIcon:SetWidth(14)
+    row.raidIcon:SetHeight(14)
+    row.raidIcon:SetPoint("LEFT", row.spellIcon, "RIGHT", 3, 0)
+    row.raidIcon:Hide()
+
+    -- Spell name + source (fixed anchor: always 21px past spell icon = 3+14+4 for marker column)
     row.spellText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.spellText:SetPoint("LEFT", row.spellIcon, "RIGHT", 4, 0)
+    row.spellText:SetPoint("LEFT", row.spellIcon, "RIGHT", 21, 0)
     row.spellText:SetJustifyH("LEFT")
     row.spellText:SetTextColor(1, 1, 1)
 
-    -- Crit/miss label (right side)
+    -- Mini HP/Resource bars (rightmost column, 40x6 each, stacked)
+    local BAR_W, BAR_H_MINI = 40, 6
+    row.hpBar = CreateFrame("StatusBar", nil, row)
+    row.hpBar:SetWidth(BAR_W)
+    row.hpBar:SetHeight(BAR_H_MINI)
+    row.hpBar:SetPoint("TOPRIGHT", row, "TOPRIGHT", -D.PADDING, -2)
+    row.hpBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    row.hpBar:SetStatusBarColor(0.1, 0.9, 0.1)
+    row.hpBar:SetMinMaxValues(0, 1)
+    row.hpBarBg = row.hpBar:CreateTexture(nil, "BACKGROUND")
+    row.hpBarBg:SetAllPoints(row.hpBar)
+    row.hpBarBg:SetTexture(0.15, 0.15, 0.15, 0.8)
+
+    row.mpBar = CreateFrame("StatusBar", nil, row)
+    row.mpBar:SetWidth(BAR_W)
+    row.mpBar:SetHeight(BAR_H_MINI)
+    row.mpBar:SetPoint("TOP", row.hpBar, "BOTTOM", 0, -1)
+    row.mpBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    row.mpBar:SetStatusBarColor(0.0, 0.0, 1.0)
+    row.mpBar:SetMinMaxValues(0, 1)
+    row.mpBarBg = row.mpBar:CreateTexture(nil, "BACKGROUND")
+    row.mpBarBg:SetAllPoints(row.mpBar)
+    row.mpBarBg:SetTexture(0.15, 0.15, 0.15, 0.8)
+
+    -- Tooltip hover frame over both bars
+    row.barHover = CreateFrame("Frame", nil, row)
+    row.barHover:SetPoint("TOPLEFT", row.hpBar, "TOPLEFT", 0, 0)
+    row.barHover:SetPoint("BOTTOMRIGHT", row.mpBar, "BOTTOMRIGHT", 0, 0)
+    row.barHover:EnableMouse(true)
+    row.barHover:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        local hp = this:GetParent()._barHP or 0
+        local hpM = this:GetParent()._barHPMax or 1
+        local mp = this:GetParent()._barMP or 0
+        local mpM = this:GetParent()._barMPMax or 1
+        local pn = this:GetParent()._barPowerName or "Mana"
+        local pct = (hpM > 0) and math.floor(hp / hpM * 100) or 0
+        GameTooltip:AddLine("HP: " .. P.FormatNumber(hp) .. " / " .. P.FormatNumber(hpM) .. " (" .. pct .. "%)", 0.1, 0.9, 0.1)
+        if mpM > 0 then
+            local mpPct = math.floor(mp / mpM * 100)
+            GameTooltip:AddLine(pn .. ": " .. P.FormatNumber(mp) .. " / " .. P.FormatNumber(mpM) .. " (" .. mpPct .. "%)", 0.6, 0.6, 1)
+        end
+        GameTooltip:Show()
+    end)
+    row.barHover:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    -- Crit/miss label (left of bars)
     row.flagText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.flagText:SetPoint("RIGHT", row, "RIGHT", -D.PADDING, 0)
+    row.flagText:SetPoint("RIGHT", row.hpBar, "LEFT", -4, 0)
     row.flagText:SetWidth(36)
     row.flagText:SetJustifyH("RIGHT")
 
@@ -424,16 +540,23 @@ local function CreateEventRow(parent, index)
         end
     end)
 
-    -- Hover highlight
+    -- Hover highlight + tooltip
+    row.eventData = nil
     row:SetScript("OnEnter", function()
-        if this.eventIndex > 0 and this.eventIndex ~= D.selectedEventIdx then
-            this.selectBg:SetTexture(D.SELECT_BG[1], D.SELECT_BG[2], D.SELECT_BG[3], 0.1)
+        if this.eventIndex > 0 then
+            if this.eventIndex ~= D.selectedEventIdx then
+                this.selectBg:SetTexture(D.SELECT_BG[1], D.SELECT_BG[2], D.SELECT_BG[3], 0.1)
+            end
+            if this.eventData then
+                D:ShowEventTooltip(this, this.eventData)
+            end
         end
     end)
     row:SetScript("OnLeave", function()
         if this.eventIndex ~= D.selectedEventIdx then
             this.selectBg:SetTexture(0, 0, 0, 0)
         end
+        GameTooltip:Hide()
     end)
 
     -- Scroll passthrough
@@ -602,7 +725,12 @@ function D:UpdateUnitFrame()
 
     -- Buff icons
     local buffs = e.buffs or {}
-    for i = 1, D.MAX_BUFFS do
+    local buffCount = table.getn(buffs)
+    local displayBuffs = buffCount
+    if displayBuffs > D.MAX_BUFF_ICONS then displayBuffs = D.MAX_BUFF_ICONS end
+    local buffVisRows = (displayBuffs > 0) and (math.floor((displayBuffs - 1) / D.AURA_PER_ROW) + 1) or 1
+    self.unitFrame.buffRow:SetHeight(buffVisRows * D.AURA_SIZE + math.max(0, buffVisRows - 1) * D.AURA_GAP)
+    for i = 1, D.MAX_BUFF_ICONS do
         local icon = D.buffIcons[i]
         local b = buffs[i]
         if b and b.texture then
@@ -621,9 +749,33 @@ function D:UpdateUnitFrame()
         end
     end
 
+    -- Buff overflow
+    if buffCount > D.MAX_BUFF_ICONS then
+        local overflow = buffCount - D.MAX_BUFF_ICONS
+        D.buffOverflow.text:SetText("+" .. overflow)
+        -- Position after last visible icon on the last row
+        local lastCol = math.mod(displayBuffs, D.AURA_PER_ROW)
+        local lastRow = math.floor((displayBuffs - 1) / D.AURA_PER_ROW)
+        D.buffOverflow:ClearAllPoints()
+        D.buffOverflow:SetPoint("TOPLEFT", uf.buffRow, "TOPLEFT", lastCol * (D.AURA_SIZE + D.AURA_GAP), -lastRow * (D.AURA_SIZE + D.AURA_GAP))
+        local hidden = {}
+        for i = D.MAX_BUFF_ICONS + 1, buffCount do
+            table.insert(hidden, buffs[i])
+        end
+        D.buffOverflow.hiddenBuffs = hidden
+        D.buffOverflow:Show()
+    else
+        D.buffOverflow:Hide()
+    end
+
     -- Debuff icons
     local debuffs = e.debuffs or {}
-    for i = 1, D.MAX_DEBUFFS do
+    local debuffCount = table.getn(debuffs)
+    local displayDebuffs = debuffCount
+    if displayDebuffs > D.MAX_DEBUFF_ICONS then displayDebuffs = D.MAX_DEBUFF_ICONS end
+    local debuffVisRows = (displayDebuffs > 0) and (math.floor((displayDebuffs - 1) / D.AURA_PER_ROW) + 1) or 1
+    self.unitFrame.debuffRow:SetHeight(debuffVisRows * D.AURA_SIZE + math.max(0, debuffVisRows - 1) * D.AURA_GAP)
+    for i = 1, D.MAX_DEBUFF_ICONS do
         local icon = D.debuffIcons[i]
         local db = debuffs[i]
         if db and db.texture then
@@ -651,6 +803,195 @@ function D:UpdateUnitFrame()
             icon:Hide()
         end
     end
+
+    -- Debuff overflow
+    if debuffCount > D.MAX_DEBUFF_ICONS then
+        local overflow = debuffCount - D.MAX_DEBUFF_ICONS
+        D.debuffOverflow.text:SetText("+" .. overflow)
+        local lastCol = math.mod(displayDebuffs, D.AURA_PER_ROW)
+        local lastRow = math.floor((displayDebuffs - 1) / D.AURA_PER_ROW)
+        D.debuffOverflow:ClearAllPoints()
+        D.debuffOverflow:SetPoint("TOPLEFT", uf.debuffRow, "TOPLEFT", lastCol * (D.AURA_SIZE + D.AURA_GAP), -lastRow * (D.AURA_SIZE + D.AURA_GAP))
+        local hidden = {}
+        for i = D.MAX_DEBUFF_ICONS + 1, debuffCount do
+            table.insert(hidden, debuffs[i])
+        end
+        D.debuffOverflow.hiddenDebuffs = hidden
+        D.debuffOverflow:Show()
+    else
+        D.debuffOverflow:Hide()
+    end
+end
+
+---------------------------------------------------------------------------
+-- Shared: add native-style spell info lines to GameTooltip
+-- Used by event row tooltips AND buff/debuff icon tooltips
+---------------------------------------------------------------------------
+
+function D:AddSpellInfoLines(spellID, fallbackName)
+    local spellName = fallbackName or "Unknown"
+    local spellRank, spellRange, spellManaCost, spellDesc = nil, nil, nil, nil
+
+    if spellID and spellID > 0 then
+        -- SpellInfo (SuperWoW): name, rank, texture, minRange, maxRange
+        if SpellInfo then
+            local siName, siRank, siTex, siMinR, siMaxR = SpellInfo(spellID)
+            if siName then spellName = siName end
+            if siRank and siRank ~= "" then spellRank = siRank end
+            if siMaxR and siMaxR > 0 then
+                spellRange = siMaxR .. " yd range"
+            end
+        end
+        -- GetSpellRec (Nampower): full DBC record for mana cost, description, etc.
+        if GetSpellRec then
+            local ok, rec = pcall(GetSpellRec, spellID)
+            if ok and rec then
+                if rec.manaCost and rec.manaCost > 0 then
+                    local ptName = "Mana"
+                    if rec.powerType == 1 then ptName = "Rage"
+                    elseif rec.powerType == 3 then ptName = "Energy"
+                    end
+                    spellManaCost = rec.manaCost .. " " .. ptName
+                end
+                if rec.name and rec.name ~= "" then spellName = rec.name end
+                if rec.rank and rec.rank ~= "" then spellRank = rec.rank end
+                if rec.description and rec.description ~= "" then
+                    spellDesc = rec.description
+                    -- Resolve $s1/$s2/$s3 placeholders from effectBasePoints table
+                    local ebp = rec.effectBasePoints
+                    local eds = rec.effectDieSides
+                    if ebp then
+                        for i = 1, 3 do
+                            local base = ebp[i]
+                            if base then
+                                local minVal = base + 1  -- DBC stores base-1
+                                if minVal < 0 then minVal = math.abs(minVal) end
+                                local dieVal = eds and eds[i] or 0
+                                if dieVal and dieVal > 0 then
+                                    local maxVal = base + dieVal
+                                    if maxVal < 0 then maxVal = math.abs(maxVal) end
+                                    spellDesc = string.gsub(spellDesc, "%$s" .. i, minVal .. " to " .. maxVal)
+                                else
+                                    spellDesc = string.gsub(spellDesc, "%$s" .. i, tostring(minVal))
+                                end
+                            end
+                        end
+                    end
+                    -- Resolve $d (duration)
+                    if string.find(spellDesc, "%$d") and GetSpellDuration then
+                        local durMs = GetSpellDuration(spellID)
+                        if durMs and durMs > 0 then
+                            local durSec = math.floor(durMs / 1000)
+                            if durSec >= 60 then
+                                local mins = math.floor(durSec / 60)
+                                spellDesc = string.gsub(spellDesc, "%$d", mins .. " min")
+                            else
+                                spellDesc = string.gsub(spellDesc, "%$d", durSec .. " sec")
+                            end
+                        end
+                    end
+                    -- Resolve $o1 (total periodic = base * ticks)
+                    if string.find(spellDesc, "%$o") and ebp then
+                        local amp = rec.effectAmplitude
+                        for i = 1, 3 do
+                            local val = ebp[i]
+                            if val then
+                                val = val + 1
+                                if val < 0 then val = math.abs(val) end
+                                -- total = base * (duration / amplitude) roughly
+                                local totalVal = val
+                                if amp and amp[i] and amp[i] > 0 and GetSpellDuration then
+                                    local durMs = GetSpellDuration(spellID)
+                                    if durMs and durMs > 0 then
+                                        totalVal = math.floor(val * (durMs / amp[i]))
+                                    end
+                                end
+                                spellDesc = string.gsub(spellDesc, "%$o" .. i, tostring(totalVal))
+                            end
+                        end
+                    end
+                    -- Resolve $t1 (tick interval in seconds)
+                    if string.find(spellDesc, "%$t") then
+                        local amp = rec.effectAmplitude
+                        if amp then
+                            for i = 1, 3 do
+                                if amp[i] and amp[i] > 0 then
+                                    local tickSec = math.floor(amp[i] / 1000)
+                                    spellDesc = string.gsub(spellDesc, "%$t" .. i, tostring(tickSec))
+                                end
+                            end
+                        end
+                    end
+                    -- Strip remaining unresolved placeholders
+                    spellDesc = string.gsub(spellDesc, "%$%a[%d]*", "")
+                    spellDesc = string.gsub(spellDesc, "  +", " ")
+                    -- Skip if still has $ or too short to be useful
+                    if string.find(spellDesc, "%$") or string.len(spellDesc) < 5 then
+                        spellDesc = nil
+                    end
+                end
+            end
+        end
+    end
+
+    GameTooltip:AddLine(spellName, 1, 1, 1)
+    if spellRank then GameTooltip:AddLine(spellRank, 0.5, 0.5, 0.5) end
+    if spellManaCost then GameTooltip:AddLine(spellManaCost, 0.6, 0.8, 1.0) end
+    if spellRange then GameTooltip:AddLine(spellRange, 0.6, 0.8, 1.0) end
+    if spellDesc then GameTooltip:AddLine(spellDesc, 1.0, 0.82, 0, 1) end
+end
+
+---------------------------------------------------------------------------
+-- Spell tooltip on event row hover
+---------------------------------------------------------------------------
+
+function D:ShowEventTooltip(frame, e)
+    GameTooltip:SetOwner(frame, "ANCHOR_CURSOR")
+
+    D:AddSpellInfoLines(e.spellID, e.spell)
+
+    -- Separator before death recap info
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("-- Death Recap --", D.CYAN[1], D.CYAN[2], D.CYAN[3])
+
+    -- Source + raid target
+    if e.source and e.source ~= "?" then
+        local srcLine = e.source
+        if e.raidTarget and e.raidTarget >= 1 and e.raidTarget <= 8 then
+            local rtNames = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" }
+            srcLine = srcLine .. " {" .. rtNames[e.raidTarget] .. "}"
+        end
+        GameTooltip:AddLine(srcLine, 0.7, 0.7, 0.7)
+    end
+
+    -- Amount + school
+    local schoolColors = P.SCHOOL_COLORS or {}
+    local sc = schoolColors[e.school] or { r = 0.8, g = 0.8, b = 0.8 }
+    local schoolName = D.SCHOOL_NAMES[e.school] or "Physical"
+    if e.etype == "DAMAGE" then
+        local text = P.FormatNumber(e.amount) .. " " .. schoolName .. " damage"
+        if e.crit then text = text .. " (Critical)" end
+        GameTooltip:AddLine(text, sc.r, sc.g, sc.b)
+        if e.overkill and e.overkill > 0 then
+            GameTooltip:AddLine("Overkill: " .. P.FormatNumber(e.overkill), 0.8, 0.3, 0.3)
+        end
+    elseif e.etype == "HEAL" then
+        local text = "+" .. P.FormatNumber(e.amount) .. " " .. schoolName .. " healing"
+        if e.crit then text = text .. " (Critical)" end
+        GameTooltip:AddLine(text, 0.2, 1, 0.2)
+    elseif e.etype == "MISS" then
+        GameTooltip:AddLine(e.missType or "MISS", 0.7, 0.7, 0.7)
+    elseif e.etype == "BUFF" then
+        GameTooltip:AddLine("Buff gained", D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3])
+    end
+
+    -- HP status
+    if e.hpAfter and e.hpMax and e.hpMax > 0 then
+        local pct = math.floor(e.hpAfter / e.hpMax * 100)
+        GameTooltip:AddLine("HP: " .. P.FormatNumber(e.hpAfter) .. " / " .. P.FormatNumber(e.hpMax) .. " (" .. pct .. "%)", 0.6, 0.6, 0.6)
+    end
+
+    GameTooltip:Show()
 end
 
 ---------------------------------------------------------------------------
@@ -774,25 +1115,39 @@ function D:UpdateEventRows()
                 row.timeText:SetText(string.format("%.1fs", offset))
             end
 
-            -- Spell icon
-            local spellTex = DL and DL.GetSpellIcon(e.spellID) or nil
+            -- Store event data for tooltip
+            row.eventData = e
+
+            -- Spell icon: try cached spellIcon, then SpellInfo lookup, then color fallback
+            local spellTex = e.spellIcon or (DL and DL.GetSpellIcon(e.spellID) or nil)
             if spellTex then
                 row.spellIcon:SetTexture(spellTex)
-                row.spellIcon:SetTexCoord(0, 1, 0, 1)
+                row.spellIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
             else
                 local ssc = schoolColors[e.school] or { r = 0.8, g = 0.8, b = 0.8 }
                 if e.etype == "HEAL" then
                     row.spellIcon:SetTexture(D.HEAL_COLOR[1], D.HEAL_COLOR[2], D.HEAL_COLOR[3], 1)
                 elseif e.etype == "MISS" then
                     row.spellIcon:SetTexture(D.MISS_COLOR[1], D.MISS_COLOR[2], D.MISS_COLOR[3], 1)
+                elseif e.etype == "BUFF" then
+                    row.spellIcon:SetTexture(D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3], 1)
                 else
                     row.spellIcon:SetTexture(ssc.r, ssc.g, ssc.b, 1)
                 end
+                row.spellIcon:SetTexCoord(0, 1, 0, 1)
+            end
+
+            -- Raid target icon (fixed column, use WoW API for atlas texture)
+            if e.raidTarget and e.raidTarget >= 1 and e.raidTarget <= 8 then
+                SetRaidTargetIconTexture(row.raidIcon, e.raidTarget)
+                row.raidIcon:Show()
+            else
+                row.raidIcon:Hide()
             end
 
             -- Spell name + source
             local spellSource = e.spell
-            if e.source and e.source ~= "?" then
+            if e.etype ~= "BUFF" and e.source and e.source ~= "?" then
                 spellSource = spellSource .. " (" .. e.source .. ")"
             end
             row.spellText:SetText(spellSource)
@@ -806,6 +1161,10 @@ function D:UpdateEventRows()
                 row.amountText:SetText("")
                 row.amountText:SetTextColor(D.MISS_COLOR[1], D.MISS_COLOR[2], D.MISS_COLOR[3])
                 row.spellText:SetTextColor(D.MISS_COLOR[1], D.MISS_COLOR[2], D.MISS_COLOR[3])
+            elseif e.etype == "BUFF" then
+                row.amountText:SetText("")
+                row.amountText:SetTextColor(D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3])
+                row.spellText:SetTextColor(D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3])
             else
                 row.amountText:SetText(P.FormatNumber(e.amount))
                 row.amountText:SetTextColor(1, 1, 1)
@@ -816,12 +1175,55 @@ function D:UpdateEventRows()
             if e.etype == "MISS" then
                 row.flagText:SetText(e.missType or "MISS")
                 row.flagText:SetTextColor(D.MISS_COLOR[1], D.MISS_COLOR[2], D.MISS_COLOR[3])
+            elseif e.etype == "BUFF" then
+                row.flagText:SetText("BUFF")
+                row.flagText:SetTextColor(D.BUFF_COLOR[1], D.BUFF_COLOR[2], D.BUFF_COLOR[3])
             elseif e.crit then
                 row.flagText:SetText("CRIT")
                 row.flagText:SetTextColor(1, 0.5, 0)
             else
                 row.flagText:SetText("")
             end
+
+            -- Mini HP/Resource bars
+            local hpA = e.hpAfter or 0
+            local hpM = e.hpMax or 1
+            if hpM > 0 then
+                row.hpBar:SetMinMaxValues(0, hpM)
+                row.hpBar:SetValue(hpA)
+                -- Color: green→yellow→red based on %
+                local pct = hpA / hpM
+                if pct > 0.5 then
+                    row.hpBar:SetStatusBarColor(0.1, 0.9, 0.1)
+                elseif pct > 0.25 then
+                    row.hpBar:SetStatusBarColor(0.9, 0.9, 0.1)
+                else
+                    row.hpBar:SetStatusBarColor(0.9, 0.1, 0.1)
+                end
+            else
+                row.hpBar:SetMinMaxValues(0, 1)
+                row.hpBar:SetValue(0)
+            end
+
+            local mpA = e.manaAfter or 0
+            local mpM = e.manaMax or 0
+            local pt = e.powerType or 0
+            if mpM > 0 then
+                row.mpBar:SetMinMaxValues(0, mpM)
+                row.mpBar:SetValue(mpA)
+                local pc = D.POWER_COLORS[pt] or D.POWER_COLORS[0]
+                row.mpBar:SetStatusBarColor(pc.r, pc.g, pc.b)
+                row.mpBar:Show()
+            else
+                row.mpBar:Hide()
+            end
+
+            -- Store values for tooltip
+            row._barHP = hpA
+            row._barHPMax = hpM
+            row._barMP = mpA
+            row._barMPMax = mpM
+            row._barPowerName = D.POWER_NAMES[pt] or "Mana"
 
             -- Killing blow highlight
             if eIdx == killIdx then
@@ -844,6 +1246,7 @@ function D:UpdateEventRows()
             row:Show()
         else
             row.eventIndex = 0
+            row.eventData = nil
             row:Hide()
         end
     end

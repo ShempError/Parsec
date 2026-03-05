@@ -1462,6 +1462,12 @@ function F:RefreshDebugLog()
         text = text .. log[i]
     end
 
+    -- Force width from scroll frame (may have been 0 at creation)
+    local sw = self.debugScrollFrame:GetWidth()
+    if sw and sw > 50 then
+        self.debugEditBox:SetWidth(sw - 4)
+    end
+
     self.debugEditBox:SetText(text)
 
     -- Adjust height for scroll
@@ -1525,7 +1531,7 @@ function F:RefreshPanel(idx)
     end
 
     -- Debug log
-    if idx == 6 then
+    if idx == 8 then
         self:RefreshDebugLog()
     end
 end

@@ -375,10 +375,25 @@ SlashCmdList["PARSEC"] = function(msg)
         if pp.deathLog then
             local DL = pp.deathLog
             -- Fake buff/debuff data for death recap testing
-            local fakeBuff1 = { texture = "Interface\\Icons\\Spell_Holy_WordFortitude", stacks = 0, auraID = 1243 }
-            local fakeBuff2 = { texture = "Interface\\Icons\\Spell_Nature_Regeneration", stacks = 0, auraID = 774 }
-            local fakeBuff3 = { texture = "Interface\\Icons\\Spell_Holy_GreaterBlessingofKings", stacks = 0, auraID = 25898 }
-            local fakeBuff4 = { texture = "Interface\\Icons\\Spell_Nature_Lightning", stacks = 5, auraID = 17364 }
+            local fakeBuff1 = { texture = "Interface\\Icons\\Spell_Holy_WordFortitude", stacks = 0, auraID = 1243 }        -- Power Word: Fortitude
+            local fakeBuff2 = { texture = "Interface\\Icons\\Spell_Nature_Regeneration", stacks = 0, auraID = 774 }          -- Rejuvenation
+            local fakeBuff3 = { texture = "Interface\\Icons\\Spell_Holy_GreaterBlessingofKings", stacks = 0, auraID = 25898 } -- Blessing of Kings
+            local fakeBuff4 = { texture = "Interface\\Icons\\Spell_Nature_Lightning", stacks = 5, auraID = 17364 }           -- Stormstrike (5 stacks)
+            local fakeBuffSW = { texture = "Interface\\Icons\\Ability_Warrior_ShieldWall", stacks = 0, auraID = 871 }        -- Shield Wall
+            local fakeBuffEvasion = { texture = "Interface\\Icons\\Spell_Shadow_ShadowWard", stacks = 0, auraID = 5277 }     -- Evasion
+            local fakeBuff5 = { texture = "Interface\\Icons\\Ability_Warrior_BattleShout", stacks = 0, auraID = 11551 }      -- Battle Shout
+            local fakeBuff6 = { texture = "Interface\\Icons\\Spell_Nature_Regeneration", stacks = 0, auraID = 9885 }         -- Mark of the Wild
+            local fakeBuff7 = { texture = "Interface\\Icons\\Spell_Holy_MagicalSentry", stacks = 0, auraID = 10157 }         -- Arcane Intellect
+            local fakeBuff8 = { texture = "Interface\\Icons\\Spell_Shadow_AntiShadow", stacks = 0, auraID = 10958 }          -- Shadow Protection
+            local fakeBuff9 = { texture = "Interface\\Icons\\Spell_Fire_SealOfFire", stacks = 0, auraID = 10270 }            -- Fire Resistance Totem
+            local fakeBuff10 = { texture = "Interface\\Icons\\Spell_Nature_Thorns", stacks = 0, auraID = 9910 }              -- Thorns
+            local fakeBuff11 = { texture = "Interface\\Icons\\Spell_Holy_Renew", stacks = 0, auraID = 25315 }                -- Renew
+            local fakeBuff12 = { texture = "Interface\\Icons\\Spell_Holy_PowerWordShield", stacks = 0, auraID = 10901 }       -- Power Word: Shield
+            local fakeBuff13 = { texture = "Interface\\Icons\\Spell_Holy_GreaterBlessingofSalvation", stacks = 0, auraID = 25895 } -- Blessing of Salvation
+            local fakeBuff14 = { texture = "Interface\\Icons\\Ability_TrueShot", stacks = 0, auraID = 20906 }                -- Trueshot Aura
+            local fakeBuff15 = { texture = "Interface\\Icons\\Spell_Nature_UndyingStrength", stacks = 0, auraID = 25392 }     -- Prayer of Fortitude
+            local fakeBuff16 = { texture = "Interface\\Icons\\Spell_Holy_SealOfWisdom", stacks = 0, auraID = 25290 }          -- Blessing of Wisdom
+            local fakeBuff17 = { texture = "Interface\\Icons\\Spell_Holy_InnerFire", stacks = 0, auraID = 10952 }             -- Inner Fire
             local fakeDebuff1 = { texture = "Interface\\Icons\\Spell_Shadow_GatherShadows", stacks = 3, debuffType = "Magic", auraID = 22959 }
             local fakeDebuff2 = { texture = "Interface\\Icons\\Spell_Fire_Immolation", stacks = 0, debuffType = nil, auraID = 20294 }
             local fakeDebuff3 = { texture = "Interface\\Icons\\Spell_Fire_SoulBurn", stacks = 0, debuffType = "Curse", auraID = 11722 }
@@ -392,12 +407,13 @@ SlashCmdList["PARSEC"] = function(msg)
                     hpMax = 4800, overkill = 620, powerType = 3,
                     totalDmg = 12400, totalHeal = 2100, duration = 6.2,
                     events = {
-                        { time = now - 14.2, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 1850, school = 2, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 80, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4 }, debuffs = {} },
-                        { time = now - 12.8, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 1100, school = 0, crit = false, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4 }, debuffs = { fakeDebuff2 } },
-                        { time = now - 11.5, etype = "HEAL", source = "Rotfang", spell = "Flash Heal", amount = 2100, school = 1, crit = false, hpAfter = 4800, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3 }, debuffs = { fakeDebuff2 } },
-                        { time = now - 10.1, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3200, school = 2, crit = true, hpAfter = 1600, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 3, buffs = { fakeBuff1 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
-                        { time = now - 9.3, etype = "MISS", source = "Ragnaros", spell = "Melee", amount = 0, school = 0, crit = false, hpAfter = nil, hpMax = nil, overkill = 0, missType = "DODGE", manaAfter = 30, manaMax = 100, powerType = 3, buffs = { fakeBuff1 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
-                        { time = now - 8.7, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2050, school = 2, crit = false, hpAfter = 0, hpMax = 4800, overkill = 450, missType = nil, manaAfter = 20, manaMax = 100, powerType = 3, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
+                        { time = now - 14.2, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 1850, school = 2, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 80, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff14, fakeBuff15, fakeBuff17 }, debuffs = {} },
+                        { time = now - 13.5, etype = "BUFF", source = "Raksha", spell = "Evasion", spellID = 5277, amount = 0, school = 0, crit = false, hpAfter = 4200, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 55, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff14, fakeBuff15, fakeBuff17, fakeBuffEvasion }, debuffs = {} },
+                        { time = now - 12.8, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 1100, school = 0, crit = false, hpAfter = 3100, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff4, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff14, fakeBuff15, fakeBuff17, fakeBuffEvasion }, debuffs = { fakeDebuff2 } },
+                        { time = now - 11.5, etype = "HEAL", source = "Rotfang", spell = "Flash Heal", amount = 2100, school = 1, crit = false, hpAfter = 4800, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff14, fakeBuff15, fakeBuff12 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 10.1, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3200, school = 2, crit = true, hpAfter = 1600, hpMax = 4800, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
+                        { time = now - 9.3, etype = "MISS", source = "Ragnaros", spell = "Melee", amount = 0, school = 0, crit = false, hpAfter = nil, hpMax = nil, overkill = 0, missType = "DODGE", manaAfter = 30, manaMax = 100, powerType = 3, buffs = { fakeBuff1, fakeBuff5, fakeBuff14 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
+                        { time = now - 8.7, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2050, school = 2, crit = false, hpAfter = 0, hpMax = 4800, overkill = 450, missType = nil, manaAfter = 20, manaMax = 100, powerType = 3, buffs = { fakeBuff1 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
                         { time = now - 8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 4200, school = 2, crit = true, hpAfter = 0, hpMax = 4800, overkill = 620, missType = nil, manaAfter = 10, manaMax = 100, powerType = 3, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
                     },
                 },
@@ -409,11 +425,12 @@ SlashCmdList["PARSEC"] = function(msg)
                     hpMax = 7200, overkill = 0, powerType = 1,
                     totalDmg = 18400, totalHeal = 4200, duration = 9.5,
                     events = {
-                        { time = now - 31.5, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2400, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 72, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3 }, debuffs = {} },
-                        { time = now - 29.8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 3800, school = 2, crit = true, hpAfter = 2000, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 85, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3 }, debuffs = { fakeDebuff2 } },
-                        { time = now - 28.1, etype = "HEAL", source = "Earthcall", spell = "Healing Wave", amount = 4200, school = 3, crit = false, hpAfter = 6200, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2 }, debuffs = { fakeDebuff2 } },
-                        { time = now - 26.3, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3400, school = 2, crit = false, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 1, buffs = { fakeBuff1 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
-                        { time = now - 24.0, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2200, school = 0, crit = false, hpAfter = 600, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 1, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
+                        { time = now - 31.5, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2400, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 72, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff12, fakeBuff13, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17 }, debuffs = {} },
+                        { time = now - 30.5, etype = "BUFF", source = "Krag", spell = "Shield Wall", spellID = 871, amount = 0, school = 0, crit = false, hpAfter = 5800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 72, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff11, fakeBuff12, fakeBuff13, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17, fakeBuffSW }, debuffs = {} },
+                        { time = now - 29.8, etype = "DAMAGE", source = "Ragnaros", spell = "Magma Blast", amount = 3800, school = 2, crit = true, hpAfter = 2000, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 85, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff3, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff9, fakeBuff10, fakeBuff14, fakeBuff15, fakeBuff16, fakeBuff17, fakeBuffSW }, debuffs = { fakeDebuff2 } },
+                        { time = now - 28.1, etype = "HEAL", source = "Earthcall", spell = "Healing Wave", amount = 4200, school = 3, crit = false, hpAfter = 6200, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 65, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff2, fakeBuff5, fakeBuff6, fakeBuff8, fakeBuff9, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 26.3, etype = "DAMAGE", source = "Ragnaros", spell = "Wrath of Ragnaros", amount = 3400, school = 2, crit = false, hpAfter = 2800, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 50, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff14, fakeBuff15 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
+                        { time = now - 24.0, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2200, school = 0, crit = false, hpAfter = 600, hpMax = 7200, overkill = 0, missType = nil, manaAfter = 40, manaMax = 100, powerType = 1, buffs = { fakeBuff1, fakeBuff5 }, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
                         { time = now - 22, etype = "DAMAGE", source = "Ragnaros", spell = "Melee", amount = 2800, school = 0, crit = false, hpAfter = 0, hpMax = 7200, overkill = 2200, missType = nil, manaAfter = 30, manaMax = 100, powerType = 1, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2, fakeDebuff3 } },
                     },
                 },
@@ -425,13 +442,41 @@ SlashCmdList["PARSEC"] = function(msg)
                     hpMax = 4200, overkill = 200, powerType = 0,
                     totalDmg = 8600, totalHeal = 0, duration = 4.1,
                     events = {
-                        { time = now - 39.1, etype = "DAMAGE", source = "Son of Flame", spell = "Fire Nova", amount = 2200, school = 2, crit = false, hpAfter = 3300, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 3200, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff2 }, debuffs = {} },
-                        { time = now - 37.4, etype = "DAMAGE", source = "Son of Flame", spell = "Melee", amount = 1300, school = 0, crit = false, hpAfter = 2000, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2800, manaMax = 5400, powerType = 0, buffs = { fakeBuff1 }, debuffs = { fakeDebuff2 } },
-                        { time = now - 36.0, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2000, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2400, manaMax = 5400, powerType = 0, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
+                        { time = now - 39.1, etype = "DAMAGE", source = "Son of Flame", spell = "Fire Nova", amount = 2200, school = 2, crit = false, hpAfter = 3300, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 3200, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff2, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff8, fakeBuff10, fakeBuff15, fakeBuff16 }, debuffs = {} },
+                        { time = now - 37.4, etype = "DAMAGE", source = "Son of Flame", spell = "Melee", amount = 1300, school = 0, crit = false, hpAfter = 2000, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2800, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff5, fakeBuff6, fakeBuff7, fakeBuff15 }, debuffs = { fakeDebuff2 } },
+                        { time = now - 36.0, etype = "DAMAGE", source = "Ragnaros", spell = "Lava Splash", amount = 2000, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 0, missType = nil, manaAfter = 2400, manaMax = 5400, powerType = 0, buffs = { fakeBuff1, fakeBuff5 }, debuffs = { fakeDebuff1, fakeDebuff2 } },
                         { time = now - 35, etype = "DAMAGE", source = "Son of Flame", spell = "Fireball", amount = 3100, school = 2, crit = false, hpAfter = 0, hpMax = 4200, overkill = 200, missType = nil, manaAfter = 2000, manaMax = 5400, powerType = 0, buffs = {}, debuffs = { fakeDebuff1, fakeDebuff2 } },
                     },
                 },
             }
+            -- Patch spell icons, raid targets, and spellIDs for fake data
+            local fakeSpells = {
+                ["Melee"]              = { icon = "Interface\\Icons\\INV_Sword_04" },
+                ["Lava Splash"]        = { icon = "Interface\\Icons\\Spell_Fire_Fire" },
+                ["Flash Heal"]         = { icon = "Interface\\Icons\\Spell_Holy_FlashHeal", id = 10917 },
+                ["Wrath of Ragnaros"]  = { icon = "Interface\\Icons\\Spell_Fire_Fireball02", id = 21099 },
+                ["Magma Blast"]        = { icon = "Interface\\Icons\\Spell_Fire_FireBolt", id = 20565 },
+                ["Healing Wave"]       = { icon = "Interface\\Icons\\Spell_Nature_MagicImmunity", id = 25357 },
+                ["Fire Nova"]          = { icon = "Interface\\Icons\\Spell_Fire_SealOfFire", id = 11314 },
+                ["Fireball"]           = { icon = "Interface\\Icons\\Spell_Fire_FlameBolt", id = 15228 },
+                ["Shield Wall"]        = { icon = "Interface\\Icons\\Ability_Warrior_ShieldWall", id = 871 },
+                ["Evasion"]            = { icon = "Interface\\Icons\\Spell_Shadow_ShadowWard", id = 5277 },
+            }
+            local fakeRaidTargets = {
+                ["Ragnaros"] = 8,       -- Skull
+                ["Son of Flame"] = 4,   -- Triangle
+            }
+            for i = 1, table.getn(fakeDeaths) do
+                local events = fakeDeaths[i].events
+                for j = 1, table.getn(events) do
+                    local info = fakeSpells[events[j].spell]
+                    if info then
+                        events[j].spellIcon = info.icon
+                        if info.id then events[j].spellID = info.id end
+                    end
+                    events[j].raidTarget = fakeRaidTargets[events[j].source]
+                end
+            end
             DL:AddFakeDeaths(fakeDeaths)
         end
 
@@ -454,6 +499,66 @@ SlashCmdList["PARSEC"] = function(msg)
         -- Open death recap panel
         if pp.ShowDeathRecap then
             pp.ShowDeathRecap()
+        end
+
+    elseif string.find(msg, "^spellrec") then
+        -- Debug: dump GetSpellRec fields for a spell ID
+        local _, _, idStr = string.find(msg, "spellrec%s+(%d+)")
+        if idStr and GetSpellRec then
+            local id = tonumber(idStr)
+            local rec = GetSpellRec(id, 1)
+            if rec then
+                local log = P.messageLog
+                local function D(s)
+                    table.insert(log, s)
+                end
+                D("=== GetSpellRec(" .. id .. ") ===")
+                local ebp = rec.effectBasePoints
+                D("effectBasePoints type: " .. type(ebp))
+                if ebp then
+                    for i = 0, 3 do
+                        local ok2, val = pcall(function() return ebp[i] end)
+                        D("  ebp[" .. i .. "] = " .. (ok2 and tostring(val) or "ERROR: " .. tostring(val)))
+                    end
+                end
+                local eds = rec.effectDieSides
+                D("effectDieSides type: " .. type(eds))
+                if eds then
+                    for i = 0, 3 do
+                        local ok2, val = pcall(function() return eds[i] end)
+                        D("  eds[" .. i .. "] = " .. (ok2 and tostring(val) or "ERROR"))
+                    end
+                end
+                local amp = rec.effectAmplitude
+                D("effectAmplitude type: " .. type(amp))
+                if amp then
+                    for i = 0, 3 do
+                        local ok2, val = pcall(function() return amp[i] end)
+                        D("  amp[" .. i .. "] = " .. (ok2 and tostring(val) or "ERROR"))
+                    end
+                end
+                D("-- Flat field access --")
+                local ok2, v2 = pcall(function() return rec.effectBasePoints1 end)
+                D("rec.effectBasePoints1 = " .. (ok2 and tostring(v2) or "ERROR"))
+                ok2, v2 = pcall(function() return rec["effectBasePoints_1"] end)
+                D("rec.effectBasePoints_1 = " .. (ok2 and tostring(v2) or "ERROR"))
+                D("description = " .. tostring(rec.description))
+                D("name = " .. tostring(rec.name))
+                D("manaCost = " .. tostring(rec.manaCost))
+                if GetSpellDuration then
+                    local ok3, dur = pcall(GetSpellDuration, id)
+                    D("GetSpellDuration(" .. id .. ") = " .. (ok3 and tostring(dur) or "ERROR"))
+                end
+                D("=== END ===")
+                D("Total messageLog entries: " .. table.getn(log))
+                pp.Print("SpellRec dump: " .. table.getn(log) .. " entries in Debug tab")
+            else
+                pp.Print("GetSpellRec(" .. id .. ") returned nil")
+            end
+        elseif not GetSpellRec then
+            pp.Print("GetSpellRec not available (Nampower not loaded)")
+        else
+            pp.Print("Usage: /parsec spellrec <spellID>")
         end
 
     elseif msg == "help" then

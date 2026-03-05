@@ -52,6 +52,8 @@ Traditional vanilla damage meters (DPSMate, SW_Stats, KLHThreatMeter) are limite
 - **Auto show/hide** windows on combat start/end
 - **Lock windows** to prevent accidental moving
 
+![Death Recap panel with unit frame, buff/debuff icons and event timeline](screenshots/deathlog.png)
+
 ![Options panel with bar settings, textures and sidebar navigation](screenshots/options.png)
 
 ## Installation
@@ -126,8 +128,12 @@ Parsec/
 - **Unit frame** — class icon, HP bar (green→red), class-dependent resource bar (Mana/Rage/Energy), buff and debuff icon grids with mouseover tooltips
 - **Clickable event rows** — click any event to inspect the player's full state (HP, resource, auras) at that timestamp
 - **Spell icons** — event rows display spell icons from SuperWoW SpellInfo, with school-color fallback
+- **Raid target markers** — skull, cross, triangle etc. shown next to source names in event rows
+- **Mini HP/resource bars** — each event row shows a graphical HP and resource bar reflecting the player's state after that event, with exact values on mouseover
+- **Multi-row buff/debuff display** — up to 32 buff and 32 debuff icons with multi-row wrapping, overflow "+N" indicator with tooltip listing hidden auras
 - **Debuff type borders** — debuff icons show colored borders by type (Magic=blue, Curse=purple, Disease=brown, Poison=green)
-- **Aura snapshots** — each intake event captures all buffs/debuffs and resource values for timeline inspection
+- **Aura snapshots** — each intake event captures all buffs/debuffs (32 buffs, 64 debuffs) and resource values for timeline inspection
+- **Self-cast/buff tracking** — Shield Wall, Evasion and other self-buffs tracked as BUFF events in the death timeline
 - **Spell icon cache** — efficient caching of SpellInfo lookups
 
 ### v0.5.0 (2026-03-05)
