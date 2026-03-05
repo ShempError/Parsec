@@ -12,6 +12,25 @@ P.windows = {}
 local MAX_BARS = 20
 local UPDATE_INTERVAL = 0.5
 
+---------------------------------------------------------------------------
+-- Single shared update timer (instead of per-window OnUpdate)
+-- Reduces frame count from N*fps to 1*fps for timer checks
+---------------------------------------------------------------------------
+local windowUpdateTimer = 0
+local windowTimerFrame = CreateFrame("Frame", "ParsecWindowTimer")
+windowTimerFrame:SetScript("OnUpdate", function()
+    windowUpdateTimer = windowUpdateTimer + arg1
+    if windowUpdateTimer >= UPDATE_INTERVAL then
+        windowUpdateTimer = 0
+        for i = 1, table.getn(P.windows) do
+            local w = P.windows[i]
+            if w:IsVisible() then
+                P.UpdateParsecWindow(w)
+            end
+        end
+    end
+end)
+
 -- View cycle order
 local VIEW_CYCLE = { "damage", "healing", "effheal", "dps", "hps", "deaths" }
 local VIEW_LABELS = {
@@ -1325,15 +1344,7 @@ function P.CreateWindow(viewType, segment)
         P.UpdateParsecWindow(this)
     end)
 
-    -- OnUpdate for live refresh
-    f:SetScript("OnUpdate", function()
-        local dt = arg1 or 0.016
-        this.pc.updateTimer = this.pc.updateTimer + dt
-        if this.pc.updateTimer >= UPDATE_INTERVAL then
-            this.pc.updateTimer = 0
-            P.UpdateParsecWindow(this)
-        end
-    end)
+    -- Live refresh handled by shared ParsecWindowTimer (no per-window OnUpdate)
 
     table.insert(P.windows, f)
     P.UpdateWindowTitle(f)

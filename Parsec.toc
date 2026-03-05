@@ -2,7 +2,7 @@
 ## Title: Parsec - Damage Meter
 ## Notes: Combat analysis powered by structured events. Requires SuperWoW + Nampower.
 ## Author: Shemp
-## Version: 0.5.0
+## Version: 0.5.3
 ## SavedVariables: ParsecDB
 ## SavedVariablesPerCharacter: ParsecCharDB
 

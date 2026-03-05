@@ -148,6 +148,30 @@ local function IsMeleeCrit(hitInfo)
 end
 
 ---------------------------------------------------------------------------
+-- Reusable data tables (avoid per-event allocation, reduces GC pressure)
+-- Each handler gets its own table that is reset and reused.
+---------------------------------------------------------------------------
+
+local _dmgData = {}
+local _healData = {}
+local _missData = {}
+local _buffData = {}
+local _castData = {}
+local _deathData = {}
+local _dmgShieldData = {}
+local _petDmgData = {}
+
+local function ResetTable(t)
+    t.time = nil; t.type = nil; t.source = nil; t.target = nil
+    t.sourceGUID = nil; t.targetGUID = nil; t.spellID = nil; t.spellName = nil
+    t.amount = nil; t.school = nil; t.crit = nil; t.periodic = nil
+    t.isPet = nil; t.petOwner = nil; t.overheal = nil
+    t.missType = nil; t.gained = nil; t.castType = nil; t.duration = nil
+    t.name = nil; t.guid = nil
+    return t
+end
+
+---------------------------------------------------------------------------
 -- Spell Name Cache (avoid repeated SpellInfo string allocations)
 ---------------------------------------------------------------------------
 
@@ -414,25 +438,24 @@ local function OnSpellDamage()
         return
     end
 
-    local data = {
-        time = GetTime(),
-        type = "DAMAGE",
-        source = source,
-        target = target,
-        sourceGUID = casterGuid,
-        targetGUID = targetGuid,
-        spellID = spellID,
-        spellName = spellName,
-        amount = amount,
-        school = school,
-        crit = crit,
-        periodic = periodic,
-        isPet = (petOwner ~= nil),
-        petOwner = petOwner,
-    }
+    local data = ResetTable(_dmgData)
+    data.time = GetTime()
+    data.type = "DAMAGE"
+    data.source = source
+    data.target = target
+    data.sourceGUID = casterGuid
+    data.targetGUID = targetGuid
+    data.spellID = spellID
+    data.spellName = spellName
+    data.amount = amount
+    data.school = school
+    data.crit = crit
+    data.periodic = periodic
+    data.isPet = (petOwner ~= nil)
+    data.petOwner = petOwner
 
     -- Only log pet attributions (not every damage event)
-    if petOwner then
+    if petOwner and P.debugMode then
         P.Debug("PET DMG: " .. source .. " -> " .. target ..
                 " [" .. spellName .. "] " .. amount .. " (owner:" .. petOwner .. ")")
     end
@@ -460,24 +483,23 @@ local function OnAutoAttack()
         return
     end
 
-    local data = {
-        time = GetTime(),
-        type = "DAMAGE",
-        source = source,
-        target = target,
-        sourceGUID = attackerGuid,
-        targetGUID = targetGuid,
-        spellID = 0,
-        spellName = "Auto Attack",
-        amount = amount,
-        school = 0,
-        crit = crit,
-        isPet = (petOwner ~= nil),
-        petOwner = petOwner,
-    }
+    local data = ResetTable(_dmgData)
+    data.time = GetTime()
+    data.type = "DAMAGE"
+    data.source = source
+    data.target = target
+    data.sourceGUID = attackerGuid
+    data.targetGUID = targetGuid
+    data.spellID = 0
+    data.spellName = "Auto Attack"
+    data.amount = amount
+    data.school = 0
+    data.crit = crit
+    data.isPet = (petOwner ~= nil)
+    data.petOwner = petOwner
 
     -- Only log pet attributions
-    if petOwner then
+    if petOwner and P.debugMode then
         P.Debug("PET MELEE: " .. source .. " -> " .. target ..
                 " " .. amount .. " (owner:" .. petOwner .. ")")
     end
@@ -514,21 +536,20 @@ local function OnSpellHeal()
         end
     end
 
-    local data = {
-        time = GetTime(),
-        type = "HEAL",
-        source = source,
-        target = target,
-        sourceGUID = casterGuid,
-        targetGUID = targetGuid,
-        spellID = spellID,
-        spellName = spellName,
-        amount = amount,
-        school = 0,
-        crit = crit,
-        periodic = periodic,
-        overheal = overheal,
-    }
+    local data = ResetTable(_healData)
+    data.time = GetTime()
+    data.type = "HEAL"
+    data.source = source
+    data.target = target
+    data.sourceGUID = casterGuid
+    data.targetGUID = targetGuid
+    data.spellID = spellID
+    data.spellName = spellName
+    data.amount = amount
+    data.school = 0
+    data.crit = crit
+    data.periodic = periodic
+    data.overheal = overheal
 
     bus:Fire("HEAL", data)
 end
@@ -547,18 +568,17 @@ local function OnSpellMiss()
 
     local spellName = CachedSpellName(spellID)
 
-    local data = {
-        time = GetTime(),
-        type = "MISS",
-        source = source,
-        target = target,
-        sourceGUID = casterGuid,
-        targetGUID = targetGuid,
-        spellID = spellID,
-        spellName = spellName,
-        missType = missType,
-        amount = 0,
-    }
+    local data = ResetTable(_missData)
+    data.time = GetTime()
+    data.type = "MISS"
+    data.source = source
+    data.target = target
+    data.sourceGUID = casterGuid
+    data.targetGUID = targetGuid
+    data.spellID = spellID
+    data.spellName = spellName
+    data.missType = missType
+    data.amount = 0
 
     bus:Fire("MISS", data)
 end
@@ -575,34 +595,30 @@ local function OnBuffChanged()
 
     local spellName = CachedSpellName(spellID)
 
-    local data = {
-        time = GetTime(),
-        type = "BUFF",
-        target = target,
-        spellID = spellID,
-        spellName = spellName,
-        gained = (state == 0),
-    }
+    local data = ResetTable(_buffData)
+    data.time = GetTime()
+    data.type = "BUFF"
+    data.target = target
+    data.spellID = spellID
+    data.spellName = spellName
+    data.gained = (state == 0)
     bus:Fire("BUFF", data)
 end
 
 -- SuperWoW: UNIT_CASTEVENT
 -- arg1=casterGUID, arg2=targetGUID, arg3=castType, arg4=spellID, arg5=duration(ms)
 local function OnUnitCastEvent()
-    local data = {
-        time = GetTime(),
-        type = "CAST",
-        sourceGUID = arg1,
-        targetGUID = arg2,
-        castType = arg3,
-        spellID = arg4,
-        duration = arg5,
-        source = P.ResolveName(arg1) or "?",
-        target = P.ResolveName(arg2) or "?",
-        spellName = "?",
-    }
-
-    data.spellName = CachedSpellName(data.spellID)
+    local data = ResetTable(_castData)
+    data.time = GetTime()
+    data.type = "CAST"
+    data.sourceGUID = arg1
+    data.targetGUID = arg2
+    data.castType = arg3
+    data.spellID = arg4
+    data.duration = arg5
+    data.source = P.ResolveName(arg1) or "?"
+    data.target = P.ResolveName(arg2) or "?"
+    data.spellName = CachedSpellName(arg4)
 
     bus:Fire("CAST", data)
 end
@@ -678,18 +694,15 @@ local function OnDamageShield()
         -- Also comes through DAMAGESHIELDS channel (e.g. Lightning Strike triggers shield)
         local _, _, rSource, rSpell, rTarget = string.find(msg, "(.+)'s (.+) was resisted by (.+)%.")
         if rSource then
-            local data = {
-                time = GetTime(),
-                type = "MISS",
-                source = rSource,
-                target = rTarget,
-                sourceGUID = nil,
-                targetGUID = nil,
-                spellID = 0,
-                spellName = rSpell,
-                missType = "RESIST",
-                amount = 0,
-            }
+            local data = ResetTable(_dmgShieldData)
+            data.time = GetTime()
+            data.type = "MISS"
+            data.source = rSource
+            data.target = rTarget
+            data.spellID = 0
+            data.spellName = rSpell
+            data.missType = "RESIST"
+            data.amount = 0
             bus:Fire("MISS", data)
             return
         end
@@ -701,21 +714,17 @@ local function OnDamageShield()
     local amount = tonumber(amountStr) or 0
     if amount <= 0 then return end
 
-    local data = {
-        time = GetTime(),
-        type = "DAMAGE",
-        source = source,
-        target = target or "?",
-        sourceGUID = nil,
-        targetGUID = nil,
-        spellID = 0,
-        spellName = "Reflection",
-        amount = amount,
-        school = SCHOOL_NAME_TO_NUM[schoolName] or 0,
-        crit = false,
-        isPet = false,
-        petOwner = nil,
-    }
+    local data = ResetTable(_dmgShieldData)
+    data.time = GetTime()
+    data.type = "DAMAGE"
+    data.source = source
+    data.target = target or "?"
+    data.spellID = 0
+    data.spellName = "Reflection"
+    data.amount = amount
+    data.school = SCHOOL_NAME_TO_NUM[schoolName] or 0
+    data.crit = false
+    data.isPet = false
 
     bus:Fire("DAMAGE", data)
 end
@@ -725,12 +734,11 @@ local function OnUnitDied()
     local guid = arg1
     local name = P.ResolveName(guid) or "?"
 
-    local data = {
-        time = GetTime(),
-        type = "DEATH",
-        name = name,
-        guid = guid,
-    }
+    local data = ResetTable(_deathData)
+    data.time = GetTime()
+    data.type = "DEATH"
+    data.name = name
+    data.guid = guid
 
     bus:Fire("DEATH", data)
 end
@@ -768,22 +776,20 @@ local function OnPetSpellDamage()
     if amount <= 0 then return end
 
     local playerName = UnitName("player")
-    bus:Fire("DAMAGE", {
-        time = GetTime(),
-        type = "DAMAGE",
-        source = playerName,
-        target = target or "?",
-        sourceGUID = nil,
-        targetGUID = nil,
-        spellID = 0,
-        spellName = spell,
-        amount = amount,
-        school = SCHOOL_NAME_TO_NUM[schoolName] or 0,
-        crit = isCrit,
-        periodic = false,
-        isPet = true,
-        petOwner = playerName,
-    })
+    local data = ResetTable(_petDmgData)
+    data.time = GetTime()
+    data.type = "DAMAGE"
+    data.source = playerName
+    data.target = target or "?"
+    data.spellID = 0
+    data.spellName = spell
+    data.amount = amount
+    data.school = SCHOOL_NAME_TO_NUM[schoolName] or 0
+    data.crit = isCrit
+    data.periodic = false
+    data.isPet = true
+    data.petOwner = playerName
+    bus:Fire("DAMAGE", data)
 end
 
 local function OnPetMeleeDamage()
@@ -810,22 +816,20 @@ local function OnPetMeleeDamage()
     if amount <= 0 then return end
 
     local playerName = UnitName("player")
-    bus:Fire("DAMAGE", {
-        time = GetTime(),
-        type = "DAMAGE",
-        source = playerName,
-        target = target or "?",
-        sourceGUID = nil,
-        targetGUID = nil,
-        spellID = 0,
-        spellName = "Auto Attack",
-        amount = amount,
-        school = 0,
-        crit = isCrit,
-        periodic = false,
-        isPet = true,
-        petOwner = playerName,
-    })
+    local data = ResetTable(_petDmgData)
+    data.time = GetTime()
+    data.type = "DAMAGE"
+    data.source = playerName
+    data.target = target or "?"
+    data.spellID = 0
+    data.spellName = "Auto Attack"
+    data.amount = amount
+    data.school = 0
+    data.crit = isCrit
+    data.periodic = false
+    data.isPet = true
+    data.petOwner = playerName
+    bus:Fire("DAMAGE", data)
 end
 
 local function OnPetPeriodicDamage()
@@ -841,22 +845,20 @@ local function OnPetPeriodicDamage()
     if amount <= 0 then return end
 
     local playerName = UnitName("player")
-    bus:Fire("DAMAGE", {
-        time = GetTime(),
-        type = "DAMAGE",
-        source = playerName,
-        target = target or "?",
-        sourceGUID = nil,
-        targetGUID = nil,
-        spellID = 0,
-        spellName = spell,
-        amount = amount,
-        school = SCHOOL_NAME_TO_NUM[schoolName] or 0,
-        crit = false,
-        periodic = true,
-        isPet = true,
-        petOwner = playerName,
-    })
+    local data = ResetTable(_petDmgData)
+    data.time = GetTime()
+    data.type = "DAMAGE"
+    data.source = playerName
+    data.target = target or "?"
+    data.spellID = 0
+    data.spellName = spell
+    data.amount = amount
+    data.school = SCHOOL_NAME_TO_NUM[schoolName] or 0
+    data.crit = false
+    data.periodic = true
+    data.isPet = true
+    data.petOwner = playerName
+    bus:Fire("DAMAGE", data)
 end
 
 ---------------------------------------------------------------------------
@@ -885,9 +887,11 @@ end
 
 ---------------------------------------------------------------------------
 -- Periodic pet scanning (raidpet units are range-limited, so we rescan often)
+-- Only runs when in a group (raid or party) to avoid wasting frames solo.
 local petScanTimer = 0
 local PET_SCAN_INTERVAL = 3  -- seconds
 bus:SetScript("OnUpdate", function()
+    if GetNumRaidMembers() == 0 and GetNumPartyMembers() == 0 then return end
     petScanTimer = petScanTimer + arg1
     if petScanTimer >= PET_SCAN_INTERVAL then
         petScanTimer = 0

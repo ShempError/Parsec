@@ -101,14 +101,15 @@ function P.Print(msg)
     end
 end
 
--- Debug message: always logged, only shown in chat when debug mode on
+-- Debug message: only logged when debug mode on (avoids string alloc in hot path)
 function P.Debug(msg)
+    if not P.debugMode then return end
     local text = msg or "nil"
     table.insert(P.messageLog, "[DBG] " .. StripColors(text))
     if table.getn(P.messageLog) > P.MESSAGE_LOG_MAX then
         table.remove(P.messageLog, 1)
     end
-    if P.debugMode and DEFAULT_CHAT_FRAME then
+    if DEFAULT_CHAT_FRAME then
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[Parsec]|r |cff888888" .. text .. "|r")
     end
 end

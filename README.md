@@ -130,6 +130,10 @@ Parsec/
 - **Fix memory consumption (75MB → <5MB)** — Replaced per-event `SnapshotAuras()` calls (~47k/fight, each creating ~25 sub-tables) with a throttled 2-second TTL aura cache. Added spell name cache to avoid repeated `SpellInfo()` string allocations. Removed debug ring buffer. Added negative pet GUID cache to skip expensive 40-member raid scans for confirmed non-pet GUIDs.
 - **Own-pet dedup** — Skip own-pet damage from Nampower `_OTHER` events since CHAT_MSG handlers capture it more reliably. No double-counting possible.
 - **Cache cleanup** — All caches (negative pet GUIDs, aura snapshots) are cleared on combat end to prevent unbounded growth.
+- **Performance: reusable event data tables** — EventBus handlers now reuse pre-allocated tables instead of creating new ones per combat event (~100+/sec in raids). Eliminates the #1 source of GC pressure (216 kB in pfDebug).
+- **Performance: single window update timer** — Replaced per-window `OnUpdate` handlers with a single shared `ParsecWindowTimer` frame. Cuts OnUpdate call count from N*fps to 1*fps for timer checks.
+- **Performance: P.Debug early return** — Debug logging now skips all string concatenation and table operations when debug mode is off. Previously every call allocated strings even with debug disabled.
+- **Performance: pet scan only in group** — `ParsecEventBus:OnUpdate` pet scan timer now short-circuits when solo (no raid/party members), avoiding unnecessary work every frame.
 
 ### v0.5.2 (2026-03-05)
 - **Fix crit% calculation** — periodic damage ticks (DoT: Fireball, Ignite, Pyroblast, etc.) are now excluded from the crit percentage denominator. Direct spell hits always set `SPELL_HIT_TYPE_UNK1 (0x01)` in hitInfo, while periodic ticks from `SMSG_PERIODICAURALOG` have hitInfo=0. Crit% now shows `crits / directHits` instead of `crits / allHits`, giving accurate values for spells with DoT components. Same fix applied to healing (HoT ticks excluded via Nampower's explicit periodic flag in arg6).
