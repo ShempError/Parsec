@@ -128,7 +128,7 @@ Parsec/
 - **Unit frame** — class icon, HP bar (green→red), class-dependent resource bar (Mana/Rage/Energy), buff and debuff icon grids with mouseover tooltips
 - **Clickable event rows** — click any event to inspect the player's full state (HP, resource, auras) at that timestamp
 - **Spell icons** — event rows display spell icons from SuperWoW SpellInfo, with school-color fallback
-- **Raid target markers** — skull, cross, triangle etc. shown next to source names in event rows
+- **Raid target markers** — skull, cross, triangle etc. shown next to source names in event rows (historical: captures the marker at event time, not current)
 - **Mini HP/resource bars** — each event row shows a graphical HP and resource bar reflecting the player's state after that event, with exact values on mouseover
 - **Multi-row buff/debuff display** — up to 32 buff and 32 debuff icons with multi-row wrapping, overflow "+N" indicator with tooltip listing hidden auras
 - **Debuff type borders** — debuff icons show colored borders by type (Magic=blue, Curse=purple, Disease=brown, Poison=green)
