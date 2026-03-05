@@ -135,6 +135,8 @@ Parsec/
 - **Aura snapshots** — each intake event captures all buffs/debuffs (32 buffs, 64 debuffs) and resource values for timeline inspection
 - **Self-cast/buff tracking** — Shield Wall, Evasion and other self-buffs tracked as BUFF events in the death timeline
 - **Spell icon cache** — efficient caching of SpellInfo lookups
+- **Buff name scanning** — tooltip-scanning fallback ensures buff/debuff names always display correctly, even when SpellInfo is unavailable
+- **Granular death notifications** — master toggle + separate Own/Party/Raid sub-toggles with auto-disable when master is off
 
 ### v0.5.0 (2026-03-05)
 - **Death Log** — comprehensive death tracking with per-player death counts in the main window Deaths view

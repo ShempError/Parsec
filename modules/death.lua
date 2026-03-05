@@ -76,18 +76,36 @@ end
 -- Helpers: Aura Snapshots & Spell Icons
 ---------------------------------------------------------------------------
 
+-- Hidden tooltip for buff/debuff name scanning
+local scanTip = CreateFrame("GameTooltip", "ParsecAuraScanTip", nil, "GameTooltipTemplate")
+scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
+
+local function ScanBuffName(unit, index, isBuff)
+    scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
+    scanTip:ClearLines()
+    if isBuff then
+        scanTip:SetUnitBuff(unit, index)
+    else
+        scanTip:SetUnitDebuff(unit, index)
+    end
+    local line1 = getglobal("ParsecAuraScanTipTextLeft1")
+    return line1 and line1:GetText() or nil
+end
+
 local function SnapshotAuras(unit)
     local buffs, debuffs = {}, {}
     if not unit then return buffs, debuffs end
     for i = 1, 32 do
         local tex, stacks, debuffType, auraID = UnitBuff(unit, i)
         if not tex then break end
-        table.insert(buffs, { texture = tex, stacks = stacks or 0, auraID = auraID })
+        local name = ScanBuffName(unit, i, true)
+        table.insert(buffs, { texture = tex, stacks = stacks or 0, auraID = auraID, name = name })
     end
     for i = 1, 64 do
         local tex, stacks, debuffType, auraID = UnitDebuff(unit, i)
         if not tex then break end
-        table.insert(debuffs, { texture = tex, stacks = stacks or 0, debuffType = debuffType, auraID = auraID })
+        local name = ScanBuffName(unit, i, false)
+        table.insert(debuffs, { texture = tex, stacks = stacks or 0, debuffType = debuffType, auraID = auraID, name = name })
     end
     return buffs, debuffs
 end
@@ -446,15 +464,28 @@ local function OnDeath(data)
     DL.counts.current[data.name] = (DL.counts.current[data.name] or 0) + 1
     DL.counts.overall[data.name] = (DL.counts.overall[data.name] or 0) + 1
 
-    -- Chat notification
+    -- Chat notification (filtered by context: own, party, raid)
     if P.settings.deathNotify then
-        local schoolColors = P.SCHOOL_COLORS or {}
-        local sc = schoolColors[killSchool] or { r = 1, g = 0.3, b = 0.3 }
-        local colorHex = string.format("%02x%02x%02x",
-            sc.r * 255, sc.g * 255, sc.b * 255)
-        P.Print(data.name .. " killed by |cff" .. colorHex ..
-            killSpell .. "|r (" .. killedBy .. ") - " ..
-            P.FormatNumber(killAmount) .. " dmg")
+        local isOwn = (data.name == UnitName("player"))
+        local inRaid = (GetNumRaidMembers() > 0)
+        local inParty = (not inRaid) and (GetNumPartyMembers() > 0)
+        local shouldNotify = false
+        if isOwn and P.settings.deathNotifyOwn then
+            shouldNotify = true
+        elseif inRaid and P.settings.deathNotifyRaid then
+            shouldNotify = true
+        elseif inParty and P.settings.deathNotifyParty then
+            shouldNotify = true
+        end
+        if shouldNotify then
+            local schoolColors = P.SCHOOL_COLORS or {}
+            local sc = schoolColors[killSchool] or { r = 1, g = 0.3, b = 0.3 }
+            local colorHex = string.format("%02x%02x%02x",
+                sc.r * 255, sc.g * 255, sc.b * 255)
+            P.Print(data.name .. " killed by |cff" .. colorHex ..
+                killSpell .. "|r (" .. killedBy .. ") - " ..
+                P.FormatNumber(killAmount) .. " dmg")
+        end
     end
 
     -- Auto-popup for own death

@@ -375,28 +375,28 @@ SlashCmdList["PARSEC"] = function(msg)
         if pp.deathLog then
             local DL = pp.deathLog
             -- Fake buff/debuff data for death recap testing
-            local fakeBuff1 = { texture = "Interface\\Icons\\Spell_Holy_WordFortitude", stacks = 0, auraID = 1243 }        -- Power Word: Fortitude
-            local fakeBuff2 = { texture = "Interface\\Icons\\Spell_Nature_Regeneration", stacks = 0, auraID = 774 }          -- Rejuvenation
-            local fakeBuff3 = { texture = "Interface\\Icons\\Spell_Holy_GreaterBlessingofKings", stacks = 0, auraID = 25898 } -- Blessing of Kings
-            local fakeBuff4 = { texture = "Interface\\Icons\\Spell_Nature_Lightning", stacks = 5, auraID = 17364 }           -- Stormstrike (5 stacks)
-            local fakeBuffSW = { texture = "Interface\\Icons\\Ability_Warrior_ShieldWall", stacks = 0, auraID = 871 }        -- Shield Wall
-            local fakeBuffEvasion = { texture = "Interface\\Icons\\Spell_Shadow_ShadowWard", stacks = 0, auraID = 5277 }     -- Evasion
-            local fakeBuff5 = { texture = "Interface\\Icons\\Ability_Warrior_BattleShout", stacks = 0, auraID = 11551 }      -- Battle Shout
-            local fakeBuff6 = { texture = "Interface\\Icons\\Spell_Nature_Regeneration", stacks = 0, auraID = 9885 }         -- Mark of the Wild
-            local fakeBuff7 = { texture = "Interface\\Icons\\Spell_Holy_MagicalSentry", stacks = 0, auraID = 10157 }         -- Arcane Intellect
-            local fakeBuff8 = { texture = "Interface\\Icons\\Spell_Shadow_AntiShadow", stacks = 0, auraID = 10958 }          -- Shadow Protection
-            local fakeBuff9 = { texture = "Interface\\Icons\\Spell_Fire_SealOfFire", stacks = 0, auraID = 10270 }            -- Fire Resistance Totem
-            local fakeBuff10 = { texture = "Interface\\Icons\\Spell_Nature_Thorns", stacks = 0, auraID = 9910 }              -- Thorns
-            local fakeBuff11 = { texture = "Interface\\Icons\\Spell_Holy_Renew", stacks = 0, auraID = 25315 }                -- Renew
-            local fakeBuff12 = { texture = "Interface\\Icons\\Spell_Holy_PowerWordShield", stacks = 0, auraID = 10901 }       -- Power Word: Shield
-            local fakeBuff13 = { texture = "Interface\\Icons\\Spell_Holy_GreaterBlessingofSalvation", stacks = 0, auraID = 25895 } -- Blessing of Salvation
-            local fakeBuff14 = { texture = "Interface\\Icons\\Ability_TrueShot", stacks = 0, auraID = 20906 }                -- Trueshot Aura
-            local fakeBuff15 = { texture = "Interface\\Icons\\Spell_Nature_UndyingStrength", stacks = 0, auraID = 25392 }     -- Prayer of Fortitude
-            local fakeBuff16 = { texture = "Interface\\Icons\\Spell_Holy_SealOfWisdom", stacks = 0, auraID = 25290 }          -- Blessing of Wisdom
-            local fakeBuff17 = { texture = "Interface\\Icons\\Spell_Holy_InnerFire", stacks = 0, auraID = 10952 }             -- Inner Fire
-            local fakeDebuff1 = { texture = "Interface\\Icons\\Spell_Shadow_GatherShadows", stacks = 3, debuffType = "Magic", auraID = 22959 }
-            local fakeDebuff2 = { texture = "Interface\\Icons\\Spell_Fire_Immolation", stacks = 0, debuffType = nil, auraID = 20294 }
-            local fakeDebuff3 = { texture = "Interface\\Icons\\Spell_Fire_SoulBurn", stacks = 0, debuffType = "Curse", auraID = 11722 }
+            local fakeBuff1 = { texture = "Interface\\Icons\\Spell_Holy_WordFortitude", stacks = 0, auraID = 1243, name = "Power Word: Fortitude" }
+            local fakeBuff2 = { texture = "Interface\\Icons\\Spell_Nature_Regeneration", stacks = 0, auraID = 774, name = "Rejuvenation" }
+            local fakeBuff3 = { texture = "Interface\\Icons\\Spell_Holy_GreaterBlessingofKings", stacks = 0, auraID = 25898, name = "Blessing of Kings" }
+            local fakeBuff4 = { texture = "Interface\\Icons\\Spell_Nature_Lightning", stacks = 5, auraID = 17364, name = "Stormstrike" }
+            local fakeBuffSW = { texture = "Interface\\Icons\\Ability_Warrior_ShieldWall", stacks = 0, auraID = 871, name = "Shield Wall" }
+            local fakeBuffEvasion = { texture = "Interface\\Icons\\Spell_Shadow_ShadowWard", stacks = 0, auraID = 5277, name = "Evasion" }
+            local fakeBuff5 = { texture = "Interface\\Icons\\Ability_Warrior_BattleShout", stacks = 0, auraID = 11551, name = "Battle Shout" }
+            local fakeBuff6 = { texture = "Interface\\Icons\\Spell_Nature_Regeneration", stacks = 0, auraID = 9885, name = "Mark of the Wild" }
+            local fakeBuff7 = { texture = "Interface\\Icons\\Spell_Holy_MagicalSentry", stacks = 0, auraID = 10157, name = "Arcane Intellect" }
+            local fakeBuff8 = { texture = "Interface\\Icons\\Spell_Shadow_AntiShadow", stacks = 0, auraID = 10958, name = "Shadow Protection" }
+            local fakeBuff9 = { texture = "Interface\\Icons\\Spell_Fire_SealOfFire", stacks = 0, auraID = 10270, name = "Fire Resistance Totem" }
+            local fakeBuff10 = { texture = "Interface\\Icons\\Spell_Nature_Thorns", stacks = 0, auraID = 9910, name = "Thorns" }
+            local fakeBuff11 = { texture = "Interface\\Icons\\Spell_Holy_Renew", stacks = 0, auraID = 25315, name = "Renew" }
+            local fakeBuff12 = { texture = "Interface\\Icons\\Spell_Holy_PowerWordShield", stacks = 0, auraID = 10901, name = "Power Word: Shield" }
+            local fakeBuff13 = { texture = "Interface\\Icons\\Spell_Holy_GreaterBlessingofSalvation", stacks = 0, auraID = 25895, name = "Blessing of Salvation" }
+            local fakeBuff14 = { texture = "Interface\\Icons\\Ability_TrueShot", stacks = 0, auraID = 20906, name = "Trueshot Aura" }
+            local fakeBuff15 = { texture = "Interface\\Icons\\Spell_Nature_UndyingStrength", stacks = 0, auraID = 25392, name = "Prayer of Fortitude" }
+            local fakeBuff16 = { texture = "Interface\\Icons\\Spell_Holy_SealOfWisdom", stacks = 0, auraID = 25290, name = "Blessing of Wisdom" }
+            local fakeBuff17 = { texture = "Interface\\Icons\\Spell_Holy_InnerFire", stacks = 0, auraID = 10952, name = "Inner Fire" }
+            local fakeDebuff1 = { texture = "Interface\\Icons\\Spell_Shadow_GatherShadows", stacks = 3, debuffType = "Magic", auraID = 22959, name = "Shadow Vulnerability" }
+            local fakeDebuff2 = { texture = "Interface\\Icons\\Spell_Fire_Immolation", stacks = 0, debuffType = nil, auraID = 20294, name = "Immolate" }
+            local fakeDebuff3 = { texture = "Interface\\Icons\\Spell_Fire_SoulBurn", stacks = 0, debuffType = "Curse", auraID = 11722, name = "Curse of the Elements" }
 
             local fakeDeaths = {
                 {

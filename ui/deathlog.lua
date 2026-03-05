@@ -253,11 +253,12 @@ local function CreateUnitFrame(parent, anchor)
         icon.stackText:SetShadowOffset(1, -1)
 
         icon.auraID = nil
+        icon.auraName = nil
         icon.stackCount = 0
         icon:EnableMouse(true)
         icon:SetScript("OnEnter", function()
             GameTooltip:SetOwner(this, "ANCHOR_CURSOR")
-            D:AddSpellInfoLines(this.auraID, "Unknown Buff")
+            D:AddSpellInfoLines(this.auraID, this.auraName or "Unknown Buff")
             if this.stackCount and this.stackCount > 1 then
                 GameTooltip:AddLine(this.stackCount .. " stacks", 0.6, 0.6, 0.6)
             end
@@ -285,8 +286,8 @@ local function CreateUnitFrame(parent, anchor)
         local hidden = D.buffOverflow.hiddenBuffs
         for i = 1, table.getn(hidden) do
             local b = hidden[i]
-            local name = "Unknown"
-            if b.auraID and SpellInfo then
+            local name = b.name or "Unknown"
+            if name == "Unknown" and b.auraID and SpellInfo then
                 local n = SpellInfo(b.auraID)
                 if n then name = n end
             end
@@ -330,12 +331,13 @@ local function CreateUnitFrame(parent, anchor)
         icon.stackText:SetShadowOffset(1, -1)
 
         icon.auraID = nil
+        icon.auraName = nil
         icon.stackCount = 0
         icon.debuffType = nil
         icon:EnableMouse(true)
         icon:SetScript("OnEnter", function()
             GameTooltip:SetOwner(this, "ANCHOR_CURSOR")
-            D:AddSpellInfoLines(this.auraID, "Unknown Debuff")
+            D:AddSpellInfoLines(this.auraID, this.auraName or "Unknown Debuff")
             if this.debuffType then
                 GameTooltip:AddLine(this.debuffType, 0.6, 0.6, 0.6)
             end
@@ -366,8 +368,8 @@ local function CreateUnitFrame(parent, anchor)
         local hidden = D.debuffOverflow.hiddenDebuffs
         for i = 1, table.getn(hidden) do
             local db = hidden[i]
-            local name = "Unknown"
-            if db.auraID and SpellInfo then
+            local name = db.name or "Unknown"
+            if name == "Unknown" and db.auraID and SpellInfo then
                 local n = SpellInfo(db.auraID)
                 if n then name = n end
             end
@@ -736,6 +738,7 @@ function D:UpdateUnitFrame()
         if b and b.texture then
             icon.tex:SetTexture(b.texture)
             icon.auraID = b.auraID
+            icon.auraName = b.name
             icon.stackCount = b.stacks or 0
             if b.stacks and b.stacks > 1 then
                 icon.stackText:SetText(b.stacks)
@@ -781,6 +784,7 @@ function D:UpdateUnitFrame()
         if db and db.texture then
             icon.tex:SetTexture(db.texture)
             icon.auraID = db.auraID
+            icon.auraName = db.name
             icon.stackCount = db.stacks or 0
             icon.debuffType = db.debuffType
 

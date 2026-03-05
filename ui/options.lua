@@ -148,6 +148,9 @@ function F:CreateCheckbox(parent, label, settingKey, yOffset)
     cb.settingKey = capturedKey
     row.checkbox = cb
 
+    -- Initialize checked state from current settings
+    if P.settings[capturedKey] then cb:SetChecked(1) else cb:SetChecked(nil) end
+
     return row, yOffset + F.CHECK_SIZE + F.SPACING
 end
 
@@ -1222,9 +1225,65 @@ function F:BuildDeathsPanel(panel, idx)
     ctrls.deathAutoPopup = cb1
     y = y1
 
-    local cb2, y2 = self:CreateCheckbox(panel, "Chat notifications on group deaths", "deathNotify", y)
+    local cb2, y2 = self:CreateCheckbox(panel, "Chat notifications on deaths", "deathNotify", y)
     ctrls.deathNotify = cb2
     y = y2
+
+    -- Sub-checkboxes (indented, disabled when master is off)
+    local subIndent = 20
+    local subCBs = {}
+
+    local cbOwn, yOwn = self:CreateCheckbox(panel, "Own deaths", "deathNotifyOwn", y)
+    cbOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", subIndent, -y)
+    ctrls.deathNotifyOwn = cbOwn
+    table.insert(subCBs, cbOwn)
+    y = yOwn
+
+    local cbParty, yParty = self:CreateCheckbox(panel, "Party deaths", "deathNotifyParty", y)
+    cbParty:SetPoint("TOPLEFT", panel, "TOPLEFT", subIndent, -y)
+    ctrls.deathNotifyParty = cbParty
+    table.insert(subCBs, cbParty)
+    y = yParty
+
+    local cbRaid, yRaid = self:CreateCheckbox(panel, "Raid deaths", "deathNotifyRaid", y)
+    cbRaid:SetPoint("TOPLEFT", panel, "TOPLEFT", subIndent, -y)
+    ctrls.deathNotifyRaid = cbRaid
+    table.insert(subCBs, cbRaid)
+    y = yRaid
+
+    -- Helper to enable/disable sub-checkboxes based on master toggle
+    local function UpdateNotifySubState()
+        local enabled = P.settings.deathNotify
+        for si = 1, table.getn(subCBs) do
+            local subRow = subCBs[si]
+            local subCheck = subRow.checkbox
+            if enabled then
+                subCheck:Enable()
+                subRow:Enable()
+                subRow:SetAlpha(1.0)
+            else
+                subCheck:Disable()
+                subRow:Disable()
+                subRow:SetAlpha(0.4)
+            end
+        end
+    end
+
+    -- Hook master checkbox to update sub-state
+    local origMasterRowClick = cb2:GetScript("OnClick")
+    cb2:SetScript("OnClick", function()
+        if origMasterRowClick then origMasterRowClick() end
+        UpdateNotifySubState()
+    end)
+    local masterCB = cb2.checkbox
+    local origMasterCBClick = masterCB:GetScript("OnClick")
+    masterCB:SetScript("OnClick", function()
+        if origMasterCBClick then origMasterCBClick() end
+        UpdateNotifySubState()
+    end)
+
+    -- Initial state
+    UpdateNotifySubState()
 
     y = y + 4
 
@@ -1496,10 +1555,10 @@ function F:RefreshPanel(idx)
     local ctrls = panel.controls
     local s = P.settings
 
-    -- Checkboxes
-    for key, cb in pairs(ctrls) do
-        if cb and cb.SetChecked then
-            if s[key] then cb:SetChecked(1) else cb:SetChecked(nil) end
+    -- Checkboxes (ctrls[key] is the row frame, row.checkbox is the CheckButton)
+    for key, row in pairs(ctrls) do
+        if row and row.checkbox and row.checkbox.SetChecked then
+            if s[key] then row.checkbox:SetChecked(1) else row.checkbox:SetChecked(nil) end
         end
     end
 
