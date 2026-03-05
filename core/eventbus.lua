@@ -11,9 +11,7 @@ local bus = P.eventBus
 
 bus.listeners = {}  -- { eventType = { callback1, callback2, ... } }
 bus.eventCount = 0
-bus.lastEvents = {} -- ring buffer of last N events for debug
-bus.lastEventsMax = 50
-bus.lastEventsIdx = 0
+bus._notPetGUIDs = {}  -- negative cache: GUIDs confirmed as NOT pets
 
 -- Register a module callback for a specific internal event type
 function bus:Register(eventType, callback)
@@ -26,10 +24,6 @@ end
 -- Fire an internal event to all registered listeners
 function bus:Fire(eventType, data)
     self.eventCount = self.eventCount + 1
-
-    -- Store in ring buffer for debug
-    self.lastEventsIdx = math.mod(self.lastEventsIdx, self.lastEventsMax) + 1
-    self.lastEvents[self.lastEventsIdx] = data
 
     local callbacks = self.listeners[eventType]
     if callbacks then
@@ -154,6 +148,25 @@ local function IsMeleeCrit(hitInfo)
 end
 
 ---------------------------------------------------------------------------
+-- Spell Name Cache (avoid repeated SpellInfo string allocations)
+---------------------------------------------------------------------------
+
+local spellNameCache = {}
+local function CachedSpellName(spellID)
+    if not spellID then return "?" end
+    local cached = spellNameCache[spellID]
+    if cached then return cached end
+    if SpellInfo then
+        local name = SpellInfo(spellID)
+        if name then
+            spellNameCache[spellID] = name
+            return name
+        end
+    end
+    return "?"
+end
+
+---------------------------------------------------------------------------
 -- Pet Owner Mapping (petGUID -> ownerName)
 ---------------------------------------------------------------------------
 
@@ -206,6 +219,9 @@ function P.GetPetOwnerByGUID(guid)
     -- 1. Check cache first
     local cached = P.petOwners[guid]
     if cached then return cached end
+
+    -- 1b. Negative cache (confirmed non-pets, skip expensive scans)
+    if bus._notPetGUIDs[guid] then return nil end
 
     -- 2. Get creature name via SuperWoW (server-side, works at any range)
     local creatureName = UnitName(guid)
@@ -360,6 +376,8 @@ function P.GetPetOwnerByGUID(guid)
         end
     end
 
+    -- Cache as non-pet to avoid repeated expensive scans
+    bus._notPetGUIDs[guid] = true
     return nil
 end
 
@@ -387,13 +405,14 @@ local function OnSpellDamage()
     -- Direct spell hits always have SPELL_HIT_TYPE_UNK1 (0x01) set.
     local periodic = (hitInfo == 0)
 
-    local spellName = "?"
-    if spellID and SpellInfo then
-        local name = SpellInfo(spellID)
-        if name then spellName = name end
-    end
+    local spellName = CachedSpellName(spellID)
 
     local petOwner = P.GetPetOwnerByGUID(casterGuid)
+
+    -- Skip own-pet damage from _OTHER events (CHAT_MSG handles it more reliably)
+    if petOwner and petOwner == UnitName("player") and event == "SPELL_DAMAGE_EVENT_OTHER" then
+        return
+    end
 
     local data = {
         time = GetTime(),
@@ -436,6 +455,11 @@ local function OnAutoAttack()
     local crit = IsMeleeCrit(hitInfo)
     local petOwner = P.GetPetOwnerByGUID(attackerGuid)
 
+    -- Skip own-pet melee from _OTHER events (CHAT_MSG handles it)
+    if petOwner and petOwner == UnitName("player") and event == "AUTO_ATTACK_OTHER" then
+        return
+    end
+
     local data = {
         time = GetTime(),
         type = "DAMAGE",
@@ -475,11 +499,7 @@ local function OnSpellHeal()
     local source = P.ResolveName(casterGuid) or casterGuid or "?"
     local target = P.ResolveName(targetGuid) or targetGuid or "?"
 
-    local spellName = "?"
-    if spellID and SpellInfo then
-        local name = SpellInfo(spellID)
-        if name then spellName = name end
-    end
+    local spellName = CachedSpellName(spellID)
 
     -- Overheal: check target health via SuperWoW GUID support
     local overheal = 0
@@ -525,11 +545,7 @@ local function OnSpellMiss()
     local target = P.ResolveName(targetGuid) or targetGuid or "?"
     local missType = MISS_TYPES[missInfo] or "MISS"
 
-    local spellName = "?"
-    if spellID and SpellInfo then
-        local name = SpellInfo(spellID)
-        if name then spellName = name end
-    end
+    local spellName = CachedSpellName(spellID)
 
     local data = {
         time = GetTime(),
@@ -557,11 +573,7 @@ local function OnBuffChanged()
 
     local target = P.ResolveName(guid) or guid or "?"
 
-    local spellName = "?"
-    if spellID and SpellInfo then
-        local name = SpellInfo(spellID)
-        if name then spellName = name end
-    end
+    local spellName = CachedSpellName(spellID)
 
     local data = {
         time = GetTime(),
@@ -590,12 +602,7 @@ local function OnUnitCastEvent()
         spellName = "?",
     }
 
-    if data.spellID and SpellInfo then
-        local name = SpellInfo(data.spellID)
-        if name then
-            data.spellName = name
-        end
-    end
+    data.spellName = CachedSpellName(data.spellID)
 
     bus:Fire("CAST", data)
 end
@@ -610,26 +617,24 @@ local function OnSpellGo()
     local casterName = P.ResolveName(casterGuid)
     if not casterName or not P.IsGroupMember(casterName) then return end
 
-    if SpellInfo then
-        local spellName = SpellInfo(spellId)
-        if spellName and string.find(string.lower(spellName), "totem") then
-            table.insert(P.totemCastLog, {
-                caster = casterName,
-                spell = spellName,
-                time = GetTime(),
-                totemGuid = nil,
-            })
-            P.Debug("Totem cast queued: " .. spellName .. " by " .. casterName)
-            -- Prune entries older than 5 minutes
-            local now = GetTime()
-            local pruned = {}
-            for i = 1, table.getn(P.totemCastLog) do
-                if now - P.totemCastLog[i].time < 300 then
-                    table.insert(pruned, P.totemCastLog[i])
-                end
+    local spellName = CachedSpellName(spellId)
+    if spellName ~= "?" and string.find(string.lower(spellName), "totem") then
+        table.insert(P.totemCastLog, {
+            caster = casterName,
+            spell = spellName,
+            time = GetTime(),
+            totemGuid = nil,
+        })
+        P.Debug("Totem cast queued: " .. spellName .. " by " .. casterName)
+        -- Prune entries older than 5 minutes
+        local now = GetTime()
+        local pruned = {}
+        for i = 1, table.getn(P.totemCastLog) do
+            if now - P.totemCastLog[i].time < 300 then
+                table.insert(pruned, P.totemCastLog[i])
             end
-            P.totemCastLog = pruned
         end
+        P.totemCastLog = pruned
     end
 end
 
@@ -731,6 +736,130 @@ local function OnUnitDied()
 end
 
 ---------------------------------------------------------------------------
+-- CHAT_MSG Pet Damage Handlers (reliable own-pet/totem damage tracking)
+-- These always fire for the player's own pets regardless of range,
+-- unlike Nampower _OTHER events which are range-limited.
+---------------------------------------------------------------------------
+
+local function OnPetSpellDamage()
+    local msg = arg1
+    if not msg then return end
+
+    local pet, spell, target, amountStr, schoolName, isCrit
+
+    -- Crit: "Your <pet>'s <spell> crits <target> for <amount> <school> damage"
+    local _, _, p, s, t, a, sc = string.find(msg, "Your (.+)'s (.+) crits (.+) for (%d+) (%a+) damage")
+    if a then
+        pet, spell, target, amountStr, schoolName, isCrit = p, s, t, a, sc, true
+    else
+        -- Hit: "Your <pet>'s <spell> hits <target> for <amount> <school> damage"
+        local _, _, p2, s2, t2, a2, sc2 = string.find(msg, "Your (.+)'s (.+) hits (.+) for (%d+) (%a+) damage")
+        if a2 then
+            pet, spell, target, amountStr, schoolName, isCrit = p2, s2, t2, a2, sc2, false
+        end
+    end
+
+    if not amountStr then
+        -- Absorb/resist/immune -- no damage, skip silently
+        return
+    end
+
+    local amount = tonumber(amountStr) or 0
+    if amount <= 0 then return end
+
+    local playerName = UnitName("player")
+    bus:Fire("DAMAGE", {
+        time = GetTime(),
+        type = "DAMAGE",
+        source = playerName,
+        target = target or "?",
+        sourceGUID = nil,
+        targetGUID = nil,
+        spellID = 0,
+        spellName = spell,
+        amount = amount,
+        school = SCHOOL_NAME_TO_NUM[schoolName] or 0,
+        crit = isCrit,
+        periodic = false,
+        isPet = true,
+        petOwner = playerName,
+    })
+end
+
+local function OnPetMeleeDamage()
+    local msg = arg1
+    if not msg then return end
+
+    local target, amountStr, isCrit
+
+    -- Crit: "Your <pet> crits <target> for <amount>."
+    local _, _, p, t, a = string.find(msg, "Your (.+) crits (.+) for (%d+)")
+    if a then
+        target, amountStr, isCrit = t, a, true
+    else
+        -- Hit: "Your <pet> hits <target> for <amount>."
+        local _, _, p2, t2, a2 = string.find(msg, "Your (.+) hits (.+) for (%d+)")
+        if a2 then
+            target, amountStr, isCrit = t2, a2, false
+        end
+    end
+
+    if not amountStr then return end
+
+    local amount = tonumber(amountStr) or 0
+    if amount <= 0 then return end
+
+    local playerName = UnitName("player")
+    bus:Fire("DAMAGE", {
+        time = GetTime(),
+        type = "DAMAGE",
+        source = playerName,
+        target = target or "?",
+        sourceGUID = nil,
+        targetGUID = nil,
+        spellID = 0,
+        spellName = "Auto Attack",
+        amount = amount,
+        school = 0,
+        crit = isCrit,
+        periodic = false,
+        isPet = true,
+        petOwner = playerName,
+    })
+end
+
+local function OnPetPeriodicDamage()
+    local msg = arg1
+    if not msg then return end
+
+    -- Pet periodic: "<target> suffers <amount> <school> damage from your <pet>'s <spell>."
+    local _, _, target, amountStr, schoolName, pet, spell =
+        string.find(msg, "(.+) suffers (%d+) (%a+) damage from your (.+)'s (.+)%.")
+    if not amountStr then return end  -- not a pet periodic, skip
+
+    local amount = tonumber(amountStr) or 0
+    if amount <= 0 then return end
+
+    local playerName = UnitName("player")
+    bus:Fire("DAMAGE", {
+        time = GetTime(),
+        type = "DAMAGE",
+        source = playerName,
+        target = target or "?",
+        sourceGUID = nil,
+        targetGUID = nil,
+        spellID = 0,
+        spellName = spell,
+        amount = amount,
+        school = SCHOOL_NAME_TO_NUM[schoolName] or 0,
+        crit = false,
+        periodic = true,
+        isPet = true,
+        petOwner = playerName,
+    })
+end
+
+---------------------------------------------------------------------------
 -- Find unit ID by name (backward compat, used by some overheal calcs)
 ---------------------------------------------------------------------------
 function P.FindUnitByName(name)
@@ -813,6 +942,11 @@ bus:RegisterEvent("UNIT_PET")
 bus:RegisterEvent("CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF")
 bus:RegisterEvent("CHAT_MSG_SPELL_DAMAGESHIELDS_ON_OTHERS")
 
+-- CHAT_MSG pet/totem damage (reliable own-pet tracking, not range-limited)
+bus:RegisterEvent("CHAT_MSG_SPELL_PET_DAMAGE")
+bus:RegisterEvent("CHAT_MSG_COMBAT_PET_HITS")
+bus:RegisterEvent("CHAT_MSG_SPELL_PERIODIC_CREATURE_DAMAGE")
+
 -- Combat state events (forwarded to combat-state module)
 bus:RegisterEvent("PLAYER_REGEN_DISABLED")
 bus:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -880,6 +1014,14 @@ bus:SetScript("OnEvent", function()
         or event == "CHAT_MSG_SPELL_DAMAGESHIELDS_ON_OTHERS" then
         OnDamageShield()
 
+    -- CHAT_MSG pet/totem damage (reliable own-pet tracking)
+    elseif event == "CHAT_MSG_SPELL_PET_DAMAGE" then
+        OnPetSpellDamage()
+    elseif event == "CHAT_MSG_COMBAT_PET_HITS" then
+        OnPetMeleeDamage()
+    elseif event == "CHAT_MSG_SPELL_PERIODIC_CREATURE_DAMAGE" then
+        OnPetPeriodicDamage()
+
     -- SuperWoW
     elseif event == "UNIT_CASTEVENT" then
         OnUnitCastEvent()
@@ -910,5 +1052,7 @@ bus:SetScript("OnEvent", function()
         if P.combatState then P.combatState:OnCombatStart() end
     elseif event == "PLAYER_REGEN_ENABLED" then
         if P.combatState then P.combatState:OnCombatEnd() end
+        -- Clean up negative pet cache (allows re-evaluation next combat)
+        bus._notPetGUIDs = {}
     end
 end)

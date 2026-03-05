@@ -125,6 +125,12 @@ Parsec/
 
 ## Changelog
 
+### v0.5.3 (2026-03-05)
+- **Fix missing ~50% pet/totem damage** — Added `CHAT_MSG_SPELL_PET_DAMAGE`, `CHAT_MSG_COMBAT_PET_HITS`, and `CHAT_MSG_SPELL_PERIODIC_CREATURE_DAMAGE` handlers for 100% reliable own-pet/totem damage capture. Nampower `_OTHER` events are range-limited and drop pet damage when the player moves away from totems. CHAT_MSG events always fire regardless of range.
+- **Fix memory consumption (75MB → <5MB)** — Replaced per-event `SnapshotAuras()` calls (~47k/fight, each creating ~25 sub-tables) with a throttled 2-second TTL aura cache. Added spell name cache to avoid repeated `SpellInfo()` string allocations. Removed debug ring buffer. Added negative pet GUID cache to skip expensive 40-member raid scans for confirmed non-pet GUIDs.
+- **Own-pet dedup** — Skip own-pet damage from Nampower `_OTHER` events since CHAT_MSG handlers capture it more reliably. No double-counting possible.
+- **Cache cleanup** — All caches (negative pet GUIDs, aura snapshots) are cleared on combat end to prevent unbounded growth.
+
 ### v0.5.2 (2026-03-05)
 - **Fix crit% calculation** — periodic damage ticks (DoT: Fireball, Ignite, Pyroblast, etc.) are now excluded from the crit percentage denominator. Direct spell hits always set `SPELL_HIT_TYPE_UNK1 (0x01)` in hitInfo, while periodic ticks from `SMSG_PERIODICAURALOG` have hitInfo=0. Crit% now shows `crits / directHits` instead of `crits / allHits`, giving accurate values for spells with DoT components. Same fix applied to healing (HoT ticks excluded via Nampower's explicit periodic flag in arg6).
 - **Consumable icon system** — 128 spellID→itemID mappings for potions, elixirs, flasks, healthstones, bandages, runes, juju, and TurtleWoW custom items. Death Recap now shows correct item icons and full item names instead of generic spell fallbacks.

@@ -110,6 +110,22 @@ local function SnapshotAuras(unit)
     return buffs, debuffs
 end
 
+-- Throttled aura cache: reuse snapshots within TTL to avoid per-event re-scanning
+local auraCache = {}  -- { [unit] = { time=T, buffs={...}, debuffs={...} } }
+local AURA_CACHE_TTL = 2  -- seconds
+
+local function GetCachedAuras(unit)
+    if not unit then return {}, {} end
+    local now = GetTime()
+    local cached = auraCache[unit]
+    if cached and (now - cached.time) < AURA_CACHE_TTL then
+        return cached.buffs, cached.debuffs
+    end
+    local buffs, debuffs = SnapshotAuras(unit)
+    auraCache[unit] = { time = now, buffs = buffs, debuffs = debuffs }
+    return buffs, debuffs
+end
+
 DL.HEAL_FALLBACK_ICON = "Interface\\Icons\\Spell_Holy_LesserHeal"
 
 -- Delegate icon/name resolution to shared consumables module (core/consumables.lua)
@@ -173,7 +189,7 @@ local function OnDamageIntake(data)
         manaAfter = UnitMana(data.targetGUID)
         manaMax = UnitManaMax(data.targetGUID)
     end
-    local buffs, debuffs = SnapshotAuras(unit)
+    local buffs, debuffs = GetCachedAuras(unit)
 
     local raidTarget = FindSourceRaidTarget(data.source)
 
@@ -223,7 +239,7 @@ local function OnHealIntake(data)
         manaAfter = UnitMana(data.targetGUID)
         manaMax = UnitManaMax(data.targetGUID)
     end
-    local buffs, debuffs = SnapshotAuras(unit)
+    local buffs, debuffs = GetCachedAuras(unit)
 
     local raidTarget = FindSourceRaidTarget(data.source)
 
@@ -266,7 +282,7 @@ local function OnMissIntake(data)
         manaAfter = UnitMana(data.targetGUID)
         manaMax = UnitManaMax(data.targetGUID)
     end
-    local buffs, debuffs = SnapshotAuras(unit)
+    local buffs, debuffs = GetCachedAuras(unit)
 
     local raidTarget = FindSourceRaidTarget(data.source)
 
@@ -317,7 +333,7 @@ local function OnOutgoingDamage(data)
         manaAfter = UnitMana(data.sourceGUID)
         manaMax = UnitManaMax(data.sourceGUID)
     end
-    local buffs, debuffs = SnapshotAuras(unit)
+    local buffs, debuffs = GetCachedAuras(unit)
 
     local raidTarget = FindSourceRaidTarget(data.target)
 
@@ -362,7 +378,7 @@ local function OnBuffIntake(data)
         manaMax = UnitManaMax(unit)
         powerType = UnitPowerType(unit)
     end
-    local buffs, debuffs = SnapshotAuras(unit)
+    local buffs, debuffs = GetCachedAuras(unit)
 
     PushIntake(data.target, {
         time = data.time or GetTime(),
@@ -558,6 +574,7 @@ end
 function DL:ResetCurrent()
     self.current = {}
     self.counts.current = {}
+    auraCache = {}  -- free aura snapshot memory
 end
 
 function DL:ResetAll()
@@ -566,6 +583,7 @@ function DL:ResetAll()
     self.counts.current = {}
     self.counts.overall = {}
     self:ClearIntake()
+    auraCache = {}  -- free aura snapshot memory
 end
 
 function DL:ClearIntake()
