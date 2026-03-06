@@ -132,6 +132,7 @@ Parsec/
 - **Performance: FindSourceRaidTarget cache** — Expensive raid-member target scanning now uses a 0.5s TTL cache, avoiding repeated 40-member iterations on every intake event.
 - **Fix greedy regex in pet melee patterns** — Added trailing `%.` anchor to `CHAT_MSG_COMBAT_PET_HITS/CRITS` patterns to prevent partial matches on ambiguous target names.
 - **Performance: throttled totem cast log pruning** — Totem log cleanup now runs in-place every 30s instead of creating a new table on every totem cast.
+- **TurtleWoW custom consumables** — Added 12 missing SpellID→ItemID mappings: Dreamshard Elixir, Dreamtonic, Danonzo's Tel'Abim foods (Delight, Medley, Surprise), Gurubashi Gumbo, Empowering Herbal Salad, Le Fishe Au Chocolat, Medivh's Merlot (regular + Blue), Kreeg's Stout Beatdown. Death Recap now shows correct icons and names for TurtleWoW custom consumables.
 
 ### v0.5.3 (2026-03-05)
 - **Fix missing ~50% pet/totem damage** — Added `CHAT_MSG_SPELL_PET_DAMAGE`, `CHAT_MSG_COMBAT_PET_HITS`, and `CHAT_MSG_SPELL_PERIODIC_CREATURE_DAMAGE` handlers for 100% reliable own-pet/totem damage capture. Nampower `_OTHER` events are range-limited and drop pet damage when the player moves away from totems. CHAT_MSG events always fire regardless of range.

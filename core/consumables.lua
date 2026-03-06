@@ -165,6 +165,7 @@ C.bySpellID = {
 
     -- Food / Drink
     [25804] = 21151,       -- Rumsey Rum Black Label
+    [22790] = 18284,       -- Kreeg's Stout Beatdown (+25 spirit, -5 int)
 
     -- Bandages (Use-spellID, NOT craft-spellID!)
     [746]   = 1251,        -- Linen Bandage
@@ -188,6 +189,19 @@ C.bySpellID = {
 
     -- TurtleWoW custom
     [19398] = 61675,       -- Nordanaar Herbal Tea
+    -- TurtleWoW custom elixirs
+    [45427] = 61224,       -- Dreamshard Elixir (+2% spell crit, +15 SP, +15 healing)
+    [45489] = 61423,       -- Dreamtonic (+35 spell damage)
+    -- TurtleWoW custom food (Well Fed buffs)
+    [57043] = 60977,       -- Danonzo's Tel'Abim Delight (+22 spell damage)
+    [57045] = 60978,       -- Danonzo's Tel'Abim Medley (+2% haste)
+    [57055] = 60976,       -- Danonzo's Tel'Abim Surprise (+45 ranged AP)
+    [46084] = 53015,       -- Gurubashi Gumbo (+10 sta, -3% crit/dot taken)
+    [49552] = 83309,       -- Empowering Herbal Salad (+24 healing)
+    [45624] = 84040,       -- Le Fishe Au Chocolat (+1% dodge, +4 defense)
+    -- TurtleWoW custom drinks
+    [57106] = 61174,       -- Medivh's Merlot (+25 stamina)
+    [57107] = 61175,       -- Medivh's Merlot Blue (+15 intellect)
 }
 
 -- Fallback: spell name -> itemID (for spells with unknown spellID)
