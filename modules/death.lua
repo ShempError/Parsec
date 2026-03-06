@@ -27,6 +27,29 @@ DL.counts = {
 -- Ring Buffer Operations
 ---------------------------------------------------------------------------
 
+-- Intake entry pool: recycle evicted ring buffer entries to reduce GC pressure
+local _intakePool = {}
+local _intakePoolSize = 0
+local INTAKE_POOL_MAX = 100
+
+local function RecycleIntakeEntry(entry)
+    if not entry or _intakePoolSize >= INTAKE_POOL_MAX then return end
+    _intakePoolSize = _intakePoolSize + 1
+    _intakePool[_intakePoolSize] = entry
+end
+
+local function AcquireIntakeEntry()
+    if _intakePoolSize > 0 then
+        local entry = _intakePool[_intakePoolSize]
+        _intakePool[_intakePoolSize] = nil
+        _intakePoolSize = _intakePoolSize - 1
+        -- Wipe all fields
+        for k in pairs(entry) do entry[k] = nil end
+        return entry
+    end
+    return {}
+end
+
 local function GetOrCreateIntake(name)
     if not DL.intake[name] then
         DL.intake[name] = {
@@ -42,6 +65,9 @@ end
 local function PushIntake(name, entry)
     local ib = GetOrCreateIntake(name)
     ib.idx = math.mod(ib.idx, ib.maxSize) + 1
+    -- Recycle the evicted entry before overwriting
+    local old = ib.buffer[ib.idx]
+    if old then RecycleIntakeEntry(old) end
     ib.buffer[ib.idx] = entry
     if ib.count < ib.maxSize then
         ib.count = ib.count + 1
@@ -114,16 +140,25 @@ end
 local auraCache = {}  -- { [unit] = { time=T, buffs={...}, debuffs={...} } }
 local AURA_CACHE_TTL = 2  -- seconds
 
+-- Shallow-copy an array (entries are shared, but the array itself is independent)
+local function ShallowCopyArray(src)
+    local copy = {}
+    for i = 1, table.getn(src) do copy[i] = src[i] end
+    return copy
+end
+
 local function GetCachedAuras(unit)
     if not unit then return {}, {} end
     local now = GetTime()
     local cached = auraCache[unit]
     if cached and (now - cached.time) < AURA_CACHE_TTL then
-        return cached.buffs, cached.debuffs
+        -- Return shallow copies so intake entries don't share the same array ref
+        return ShallowCopyArray(cached.buffs), ShallowCopyArray(cached.debuffs)
     end
     local buffs, debuffs = SnapshotAuras(unit)
     auraCache[unit] = { time = now, buffs = buffs, debuffs = debuffs }
-    return buffs, debuffs
+    -- First caller after cache miss gets its own copy too
+    return ShallowCopyArray(buffs), ShallowCopyArray(debuffs)
 end
 
 DL.HEAL_FALLBACK_ICON = "Interface\\Icons\\Spell_Holy_LesserHeal"
@@ -139,25 +174,45 @@ function DL.GetConsumableName(spellID)
     return nil
 end
 
+-- Short-lived cache for raid target lookups (avoid 40+ UnitName calls per event)
+local _raidTargetCache = {}   -- { [sourceName] = { time=T, idx=N|nil } }
+local RAID_TARGET_CACHE_TTL = 0.5  -- seconds
+
 local function FindSourceRaidTarget(sourceName)
     if not sourceName or not GetRaidTargetIndex then return nil end
-    if UnitName("target") == sourceName then return GetRaidTargetIndex("target") end
-    if UnitName("targettarget") == sourceName then return GetRaidTargetIndex("targettarget") end
-    local n = GetNumRaidMembers()
-    if n > 0 then
-        for i = 1, n do
-            if UnitName("raid" .. i .. "target") == sourceName then
-                return GetRaidTargetIndex("raid" .. i .. "target")
-            end
-        end
+
+    local now = GetTime()
+    local cached = _raidTargetCache[sourceName]
+    if cached and (now - cached.time) < RAID_TARGET_CACHE_TTL then
+        return cached.idx
+    end
+
+    local idx = nil
+    if UnitName("target") == sourceName then
+        idx = GetRaidTargetIndex("target")
+    elseif UnitName("targettarget") == sourceName then
+        idx = GetRaidTargetIndex("targettarget")
     else
-        for i = 1, 4 do
-            if UnitName("party" .. i .. "target") == sourceName then
-                return GetRaidTargetIndex("party" .. i .. "target")
+        local n = GetNumRaidMembers()
+        if n > 0 then
+            for i = 1, n do
+                if UnitName("raid" .. i .. "target") == sourceName then
+                    idx = GetRaidTargetIndex("raid" .. i .. "target")
+                    break
+                end
+            end
+        else
+            for i = 1, 4 do
+                if UnitName("party" .. i .. "target") == sourceName then
+                    idx = GetRaidTargetIndex("party" .. i .. "target")
+                    break
+                end
             end
         end
     end
-    return nil
+
+    _raidTargetCache[sourceName] = { time = now, idx = idx }
+    return idx
 end
 
 ---------------------------------------------------------------------------
@@ -193,26 +248,25 @@ local function OnDamageIntake(data)
 
     local raidTarget = FindSourceRaidTarget(data.source)
 
-    PushIntake(data.target, {
-        time = data.time or GetTime(),
-        etype = "DAMAGE",
-        source = data.source or "?",
-        spell = data.spellName or "Melee",
-        spellID = data.spellID,
-        amount = data.amount or 0,
-        school = data.school or 0,
-        crit = data.crit or false,
-        hpAfter = hpAfter,
-        hpMax = hpMax,
-        overkill = 0,
-        missType = nil,
-        manaAfter = manaAfter,
-        manaMax = manaMax,
-        powerType = powerType,
-        buffs = buffs,
-        debuffs = debuffs,
-        raidTarget = raidTarget,
-    })
+    local e = AcquireIntakeEntry()
+    e.time = data.time or GetTime()
+    e.etype = "DAMAGE"
+    e.source = data.source or "?"
+    e.spell = data.spellName or "Melee"
+    e.spellID = data.spellID
+    e.amount = data.amount or 0
+    e.school = data.school or 0
+    e.crit = data.crit or false
+    e.hpAfter = hpAfter
+    e.hpMax = hpMax
+    e.overkill = 0
+    e.manaAfter = manaAfter
+    e.manaMax = manaMax
+    e.powerType = powerType
+    e.buffs = buffs
+    e.debuffs = debuffs
+    e.raidTarget = raidTarget
+    PushIntake(data.target, e)
 end
 
 local function OnHealIntake(data)
@@ -243,26 +297,25 @@ local function OnHealIntake(data)
 
     local raidTarget = FindSourceRaidTarget(data.source)
 
-    PushIntake(data.target, {
-        time = data.time or GetTime(),
-        etype = "HEAL",
-        source = data.source or "?",
-        spell = data.spellName or "Heal",
-        spellID = data.spellID,
-        amount = data.amount or 0,
-        school = data.school or 0,
-        crit = data.crit or false,
-        hpAfter = hpAfter,
-        hpMax = hpMax,
-        overkill = 0,
-        missType = nil,
-        manaAfter = manaAfter,
-        manaMax = manaMax,
-        powerType = powerType,
-        buffs = buffs,
-        debuffs = debuffs,
-        raidTarget = raidTarget,
-    })
+    local e = AcquireIntakeEntry()
+    e.time = data.time or GetTime()
+    e.etype = "HEAL"
+    e.source = data.source or "?"
+    e.spell = data.spellName or "Heal"
+    e.spellID = data.spellID
+    e.amount = data.amount or 0
+    e.school = data.school or 0
+    e.crit = data.crit or false
+    e.hpAfter = hpAfter
+    e.hpMax = hpMax
+    e.overkill = 0
+    e.manaAfter = manaAfter
+    e.manaMax = manaMax
+    e.powerType = powerType
+    e.buffs = buffs
+    e.debuffs = debuffs
+    e.raidTarget = raidTarget
+    PushIntake(data.target, e)
 end
 
 local function OnMissIntake(data)
@@ -286,26 +339,24 @@ local function OnMissIntake(data)
 
     local raidTarget = FindSourceRaidTarget(data.source)
 
-    PushIntake(data.target, {
-        time = data.time or GetTime(),
-        etype = "MISS",
-        source = data.source or "?",
-        spell = data.spellName or "Melee",
-        spellID = data.spellID,
-        amount = 0,
-        school = data.school or 0,
-        crit = false,
-        hpAfter = nil,
-        hpMax = nil,
-        overkill = 0,
-        missType = data.missType or "MISS",
-        manaAfter = manaAfter,
-        manaMax = manaMax,
-        powerType = powerType,
-        buffs = buffs,
-        debuffs = debuffs,
-        raidTarget = raidTarget,
-    })
+    local e = AcquireIntakeEntry()
+    e.time = data.time or GetTime()
+    e.etype = "MISS"
+    e.source = data.source or "?"
+    e.spell = data.spellName or "Melee"
+    e.spellID = data.spellID
+    e.amount = 0
+    e.school = data.school or 0
+    e.crit = false
+    e.overkill = 0
+    e.missType = data.missType or "MISS"
+    e.manaAfter = manaAfter
+    e.manaMax = manaMax
+    e.powerType = powerType
+    e.buffs = buffs
+    e.debuffs = debuffs
+    e.raidTarget = raidTarget
+    PushIntake(data.target, e)
 end
 
 local function OnOutgoingDamage(data)
@@ -337,27 +388,26 @@ local function OnOutgoingDamage(data)
 
     local raidTarget = FindSourceRaidTarget(data.target)
 
-    PushIntake(data.source, {
-        time = data.time or GetTime(),
-        etype = "OUTGOING",
-        source = data.source,
-        target = data.target or "?",
-        spell = data.spellName or "Melee",
-        spellID = data.spellID,
-        amount = data.amount or 0,
-        school = data.school or 0,
-        crit = data.crit or false,
-        hpAfter = hpAfter,
-        hpMax = hpMax,
-        overkill = 0,
-        missType = nil,
-        manaAfter = manaAfter,
-        manaMax = manaMax,
-        powerType = powerType,
-        buffs = buffs,
-        debuffs = debuffs,
-        raidTarget = raidTarget,
-    })
+    local e = AcquireIntakeEntry()
+    e.time = data.time or GetTime()
+    e.etype = "OUTGOING"
+    e.source = data.source
+    e.target = data.target or "?"
+    e.spell = data.spellName or "Melee"
+    e.spellID = data.spellID
+    e.amount = data.amount or 0
+    e.school = data.school or 0
+    e.crit = data.crit or false
+    e.hpAfter = hpAfter
+    e.hpMax = hpMax
+    e.overkill = 0
+    e.manaAfter = manaAfter
+    e.manaMax = manaMax
+    e.powerType = powerType
+    e.buffs = buffs
+    e.debuffs = debuffs
+    e.raidTarget = raidTarget
+    PushIntake(data.source, e)
 end
 
 local function OnBuffIntake(data)
@@ -380,25 +430,24 @@ local function OnBuffIntake(data)
     end
     local buffs, debuffs = GetCachedAuras(unit)
 
-    PushIntake(data.target, {
-        time = data.time or GetTime(),
-        etype = "BUFF",
-        source = data.target,  -- self-cast
-        spell = data.spellName or "Buff",
-        spellID = data.spellID,
-        amount = 0,
-        school = 0,
-        crit = false,
-        hpAfter = hpAfter,
-        hpMax = hpMax,
-        overkill = 0,
-        missType = nil,
-        manaAfter = manaAfter,
-        manaMax = manaMax,
-        powerType = powerType,
-        buffs = buffs,
-        debuffs = debuffs,
-    })
+    local e = AcquireIntakeEntry()
+    e.time = data.time or GetTime()
+    e.etype = "BUFF"
+    e.source = data.target  -- self-cast
+    e.spell = data.spellName or "Buff"
+    e.spellID = data.spellID
+    e.amount = 0
+    e.school = 0
+    e.crit = false
+    e.hpAfter = hpAfter
+    e.hpMax = hpMax
+    e.overkill = 0
+    e.manaAfter = manaAfter
+    e.manaMax = manaMax
+    e.powerType = powerType
+    e.buffs = buffs
+    e.debuffs = debuffs
+    PushIntake(data.target, e)
 end
 
 local function OnDeath(data)
@@ -575,6 +624,7 @@ function DL:ResetCurrent()
     self.current = {}
     self.counts.current = {}
     auraCache = {}  -- free aura snapshot memory
+    _raidTargetCache = {}
 end
 
 function DL:ResetAll()
@@ -584,10 +634,13 @@ function DL:ResetAll()
     self.counts.overall = {}
     self:ClearIntake()
     auraCache = {}  -- free aura snapshot memory
+    _raidTargetCache = {}
 end
 
 function DL:ClearIntake()
     self.intake = {}
+    _intakePool = {}
+    _intakePoolSize = 0
 end
 
 ---------------------------------------------------------------------------

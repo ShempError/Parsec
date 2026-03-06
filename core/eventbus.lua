@@ -642,15 +642,22 @@ local function OnSpellGo()
             totemGuid = nil,
         })
         P.Debug("Totem cast queued: " .. spellName .. " by " .. casterName)
-        -- Prune entries older than 5 minutes
+        -- Prune entries older than 5 minutes (throttled: every 30s)
         local now = GetTime()
-        local pruned = {}
-        for i = 1, table.getn(P.totemCastLog) do
-            if now - P.totemCastLog[i].time < 300 then
-                table.insert(pruned, P.totemCastLog[i])
+        if now - (bus._lastTotemPrune or 0) > 30 then
+            bus._lastTotemPrune = now
+            local writeIdx = 0
+            for i = 1, table.getn(P.totemCastLog) do
+                if now - P.totemCastLog[i].time < 300 then
+                    writeIdx = writeIdx + 1
+                    P.totemCastLog[writeIdx] = P.totemCastLog[i]
+                end
+            end
+            -- Nil out trailing stale entries
+            for i = writeIdx + 1, table.getn(P.totemCastLog) do
+                P.totemCastLog[i] = nil
             end
         end
-        P.totemCastLog = pruned
     end
 end
 
@@ -799,12 +806,13 @@ local function OnPetMeleeDamage()
     local target, amountStr, isCrit
 
     -- Crit: "Your <pet> crits <target> for <amount>."
-    local _, _, p, t, a = string.find(msg, "Your (.+) crits (.+) for (%d+)")
+    -- Anchor with trailing %." to prevent partial matches on substring overlaps
+    local _, _, p, t, a = string.find(msg, "Your (.+) crits (.+) for (%d+)%.")
     if a then
         target, amountStr, isCrit = t, a, true
     else
         -- Hit: "Your <pet> hits <target> for <amount>."
-        local _, _, p2, t2, a2 = string.find(msg, "Your (.+) hits (.+) for (%d+)")
+        local _, _, p2, t2, a2 = string.find(msg, "Your (.+) hits (.+) for (%d+)%.")
         if a2 then
             target, amountStr, isCrit = t2, a2, false
         end

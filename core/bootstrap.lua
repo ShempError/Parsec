@@ -157,8 +157,8 @@ SlashCmdList["PARSEC"] = function(msg)
         pp.Print("groupMembers: " .. (pp.groupMembers and "OK" or "|cffff4444NIL|r"))
 
     elseif string.sub(msg, 1, 6) == "events" then
-        local count = tonumber(string.sub(msg, 8)) or 10
-        pp.ShowEvents(count)
+        local count = tonumber(string.sub(msg, 8)) or 20
+        pp.ShowMissedEvents(count)
 
     elseif msg == "dump" then
         pp.DumpArgs("ManualDump")

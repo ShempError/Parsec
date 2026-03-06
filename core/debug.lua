@@ -43,33 +43,20 @@ function P.ShowStats()
     P.Print("Addon memory: " .. string.format("%.0f", mem) .. " KB")
 end
 
--- Show last N events from ring buffer
-function P.ShowEvents(count)
-    local bus = P.eventBus
-    count = count or 10
-    P.Print("--- Last " .. count .. " Events ---")
-
-    local idx = bus.lastEventsIdx
-    local max = bus.lastEventsMax
-    local shown = 0
-
-    for i = 0, max - 1 do
-        if shown >= count then break end
-        local pos = math.mod(idx - 1 - i, max) + 1
-        local ev = bus.lastEvents[pos]
-        if ev then
-            local line = (ev.type or "?") .. ": "
-            if ev.source then line = line .. ev.source end
-            if ev.target then line = line .. " -> " .. ev.target end
-            if ev.spellName then line = line .. " [" .. ev.spellName .. "]" end
-            if ev.amount then line = line .. " " .. ev.amount end
-            P.Print(line)
-            shown = shown + 1
-        end
+-- Show missed/unparsed events (replaces removed ring buffer)
+function P.ShowMissedEvents(count)
+    count = count or 20
+    P.Print("--- Last " .. count .. " Missed Events ---")
+    local total = table.getn(P.missedEvents)
+    if total == 0 then
+        P.Print("No missed events recorded.")
+        return
     end
-
-    if shown == 0 then
-        P.Print("No events recorded yet.")
+    local start = total - count + 1
+    if start < 1 then start = 1 end
+    for i = start, total do
+        local e = P.missedEvents[i]
+        P.Print(e.time .. " [" .. e.event .. "] " .. e.msg)
     end
 end
 
