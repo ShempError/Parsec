@@ -125,7 +125,7 @@ Parsec/
 
 ## Changelog
 
-### v0.5.4 (2026-03-06)
+### v0.5.4 (unreleased)
 - **Fix crash: `/parsec events` dead code** — `ShowEvents()` referenced removed ring buffer fields. Replaced with `ShowMissedEvents()` that reads from the missed events log.
 - **Fix shared aura cache references** — `GetCachedAuras()` now returns shallow copies of cached arrays, preventing multiple intake entries from sharing the same buff/debuff table references.
 - **Performance: intake entry table pool** — Evicted ring buffer entries are recycled via an object pool instead of being garbage-collected. All 5 PushIntake call sites use the pool.
