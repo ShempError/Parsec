@@ -434,8 +434,12 @@ local function OnSpellDamage()
     local petOwner = P.GetPetOwnerByGUID(casterGuid)
 
     -- Skip own-pet damage from _OTHER events (CHAT_MSG handles it more reliably)
+    -- Exception: totems — CHAT_MSG_SPELL_PET_DAMAGE doesn't fire reliably for them
     if petOwner and petOwner == UnitName("player") and event == "SPELL_DAMAGE_EVENT_OTHER" then
-        return
+        local creatureName = P.ResolveName(casterGuid)
+        if not creatureName or not string.find(string.lower(creatureName), "totem") then
+            return
+        end
     end
 
     local data = ResetTable(_dmgData)
@@ -479,8 +483,12 @@ local function OnAutoAttack()
     local petOwner = P.GetPetOwnerByGUID(attackerGuid)
 
     -- Skip own-pet melee from _OTHER events (CHAT_MSG handles it)
+    -- Exception: totems use _OTHER because CHAT_MSG doesn't fire reliably for them
     if petOwner and petOwner == UnitName("player") and event == "AUTO_ATTACK_OTHER" then
-        return
+        local creatureName = P.ResolveName(attackerGuid)
+        if not creatureName or not string.find(string.lower(creatureName), "totem") then
+            return
+        end
     end
 
     local data = ResetTable(_dmgData)
@@ -779,6 +787,11 @@ local function OnPetSpellDamage()
         return
     end
 
+    -- Totem damage is handled by Nampower _OTHER events; skip here to avoid double-counting
+    if pet and string.find(string.lower(pet), "totem") then
+        return
+    end
+
     local amount = tonumber(amountStr) or 0
     if amount <= 0 then return end
 
@@ -848,6 +861,11 @@ local function OnPetPeriodicDamage()
     local _, _, target, amountStr, schoolName, pet, spell =
         string.find(msg, "(.+) suffers (%d+) (%a+) damage from your (.+)'s (.+)%.")
     if not amountStr then return end  -- not a pet periodic, skip
+
+    -- Totem damage is handled by Nampower _OTHER events; skip here to avoid double-counting
+    if pet and string.find(string.lower(pet), "totem") then
+        return
+    end
 
     local amount = tonumber(amountStr) or 0
     if amount <= 0 then return end
