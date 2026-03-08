@@ -126,6 +126,11 @@ Parsec/
 ## Changelog
 
 ### v0.5.4 (unreleased)
+
+### v0.5.3.1 (2026-03-08)
+- **Fix totem damage not tracked for own character** — Searing Totem (and other totems) damage was missing from the caster's own damage view while other players could see it. Root cause: own-pet damage from Nampower `_OTHER` events was blanket-skipped, but the CHAT_MSG fallback doesn't fire reliably for TurtleWoW totems. Fix: allow totem damage through `_OTHER` events (creature name check) and skip totems in CHAT_MSG pet handlers to prevent double-counting.
+
+### v0.5.3 (2026-03-05)
 - **Fix crash: `/parsec events` dead code** — `ShowEvents()` referenced removed ring buffer fields. Replaced with `ShowMissedEvents()` that reads from the missed events log.
 - **Fix shared aura cache references** — `GetCachedAuras()` now returns shallow copies of cached arrays, preventing multiple intake entries from sharing the same buff/debuff table references.
 - **Performance: intake entry table pool** — Evicted ring buffer entries are recycled via an object pool instead of being garbage-collected. All 5 PushIntake call sites use the pool.
