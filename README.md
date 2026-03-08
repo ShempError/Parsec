@@ -128,10 +128,10 @@ Parsec/
 ### v0.5.4 (unreleased)
 
 ### v0.5.3.3 (2026-03-08)
-- **Memory optimization: CachedLower()** — All `string.lower()` calls in the event bus replaced with a cached version that returns the same interned string for repeated inputs. Eliminates ~7 new string allocations per combat event in 40-man raids.
-- **Memory optimization: spellID keys in data store** — Spell data tables (`damage_spells`, `heal_spells`) now keyed by numeric `spellID` instead of string `spellName`. Reduces hash table overhead and allows spell name strings to be GC'd faster. Falls back to string keys for CHAT_MSG events where no spellID is available (Auto Attack, Reflection, pet damage).
-- **Memory optimization: early-exit pet GUID lookup** — `GetPetOwnerByGUID` now skips the expensive 40-member raid scan for GUIDs that are already known group members.
-- **Memory optimization: periodic cache flush** — `_lowerCache` is flushed every 60 seconds during combat to prevent unbounded growth in long fights. All caches (`missedSeen`, `_lowerCache`, `_notPetGUIDs`) are cleared on combat end.
+- **CachedLower()** — All `string.lower()` calls in the event bus replaced with a cached version that returns the same string for repeated inputs.
+- **spellID keys in data store** — Spell data tables (`damage_spells`, `heal_spells`) now keyed by numeric `spellID` instead of string `spellName`. Falls back to string keys for CHAT_MSG events where no spellID is available (Auto Attack, Reflection, pet damage).
+- **Early-exit pet GUID lookup** — `GetPetOwnerByGUID` checks `guidNames`/`IsGroupMember` before scanning all raid members.
+- **Periodic cache flush** — `_lowerCache` flushed every 60s during combat. All caches (`missedSeen`, `_lowerCache`, `_notPetGUIDs`) cleared on combat end.
 
 ### v0.5.3.2 (2026-03-08)
 - **Fix totem cast log crash** — `table.insert` sets `.n` on the array, but the in-place compaction (prune stale entries) only nil'd trailing slots without updating `.n`. `table.getn` then returned the stale length, causing iteration over nil entries → "attempt to index local 'entry'" spam. Fix: `table.setn` after compaction + nil-guard on iteration.
