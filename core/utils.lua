@@ -11,7 +11,7 @@ end
 Parsec = {}
 local P = Parsec
 
-P.VERSION = "0.5.3"
+P.VERSION = "0.5.3.3"
 P._loadedFiles = { "utils" }
 
 -- Class colors (same as RAID_CLASS_COLORS but guaranteed available)

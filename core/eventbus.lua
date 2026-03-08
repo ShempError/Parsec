@@ -172,6 +172,21 @@ local function ResetTable(t)
 end
 
 ---------------------------------------------------------------------------
+-- Lowercase String Cache (avoid repeated string.lower() allocations)
+-- Cleared on combat end to prevent unbounded growth over long sessions.
+---------------------------------------------------------------------------
+
+local _lowerCache = {}
+local function CachedLower(s)
+    if not s then return nil end
+    local cached = _lowerCache[s]
+    if cached then return cached end
+    cached = string.lower(s)
+    _lowerCache[s] = cached
+    return cached
+end
+
+---------------------------------------------------------------------------
 -- Spell Name Cache (avoid repeated SpellInfo string allocations)
 ---------------------------------------------------------------------------
 
@@ -247,6 +262,10 @@ function P.GetPetOwnerByGUID(guid)
     -- 1b. Negative cache (confirmed non-pets, skip expensive scans)
     if bus._notPetGUIDs[guid] then return nil end
 
+    -- 1c. Fast path: if GUID already resolved to a group member, it's a player not a pet
+    local knownName = P.guidNames[guid]
+    if knownName and P.IsGroupMember(knownName) then return nil end
+
     -- 2. Get creature name via SuperWoW (server-side, works at any range)
     local creatureName = UnitName(guid)
     if not creatureName or creatureName == "Unknown" or creatureName == "Unbekannt" then
@@ -260,11 +279,11 @@ function P.GetPetOwnerByGUID(guid)
     -- FIFO: oldest unassigned cast matched first (first placed = first to attack)
     -- Fuzzy match: creature name may include rank that SpellInfo omits
     local totemOwner = nil
-    local creatureLower = string.lower(creatureName)
+    local creatureLower = CachedLower(creatureName)
     for i = 1, table.getn(P.totemCastLog) do
         local entry = P.totemCastLog[i]
         if entry and not entry.totemGuid then
-            local spellLower = string.lower(entry.spell)
+            local spellLower = entry.spellLower or CachedLower(entry.spell)
             if creatureLower == spellLower
                 or string.find(creatureLower, spellLower, 1, true)
                 or string.find(spellLower, creatureLower, 1, true) then
@@ -347,7 +366,7 @@ function P.GetPetOwnerByGUID(guid)
 
     -- 6. Class-based fallback (when raidpet scan fails due to range)
     if not P.dataStore then return nil end
-    local lowerName = string.lower(creatureName)
+    local lowerName = CachedLower(creatureName)
     local isTotem = string.find(lowerName, "totem")
 
     if isTotem then
@@ -437,7 +456,7 @@ local function OnSpellDamage()
     -- Exception: totems — CHAT_MSG_SPELL_PET_DAMAGE doesn't fire reliably for them
     if petOwner and petOwner == UnitName("player") and event == "SPELL_DAMAGE_EVENT_OTHER" then
         local creatureName = P.ResolveName(casterGuid)
-        if not creatureName or not string.find(string.lower(creatureName), "totem") then
+        if not creatureName or not string.find(CachedLower(creatureName), "totem") then
             return
         end
     end
@@ -486,7 +505,7 @@ local function OnAutoAttack()
     -- Exception: totems use _OTHER because CHAT_MSG doesn't fire reliably for them
     if petOwner and petOwner == UnitName("player") and event == "AUTO_ATTACK_OTHER" then
         local creatureName = P.ResolveName(attackerGuid)
-        if not creatureName or not string.find(string.lower(creatureName), "totem") then
+        if not creatureName or not string.find(CachedLower(creatureName), "totem") then
             return
         end
     end
@@ -642,10 +661,11 @@ local function OnSpellGo()
     if not casterName or not P.IsGroupMember(casterName) then return end
 
     local spellName = CachedSpellName(spellId)
-    if spellName ~= "?" and string.find(string.lower(spellName), "totem") then
+    if spellName ~= "?" and string.find(CachedLower(spellName), "totem") then
         table.insert(P.totemCastLog, {
             caster = casterName,
             spell = spellName,
+            spellLower = CachedLower(spellName),
             time = GetTime(),
             totemGuid = nil,
         })
@@ -789,7 +809,7 @@ local function OnPetSpellDamage()
     end
 
     -- Totem damage is handled by Nampower _OTHER events; skip here to avoid double-counting
-    if pet and string.find(string.lower(pet), "totem") then
+    if pet and string.find(CachedLower(pet), "totem") then
         return
     end
 
@@ -864,7 +884,7 @@ local function OnPetPeriodicDamage()
     if not amountStr then return end  -- not a pet periodic, skip
 
     -- Totem damage is handled by Nampower _OTHER events; skip here to avoid double-counting
-    if pet and string.find(string.lower(pet), "totem") then
+    if pet and string.find(CachedLower(pet), "totem") then
         return
     end
 
@@ -917,9 +937,17 @@ end
 -- Only runs when in a group (raid or party) to avoid wasting frames solo.
 local petScanTimer = 0
 local PET_SCAN_INTERVAL = 3  -- seconds
+local _cacheFlushTimer = 0
+local CACHE_FLUSH_INTERVAL = 60  -- seconds: flush lowercase cache mid-combat
 bus:SetScript("OnUpdate", function()
     if GetNumRaidMembers() == 0 and GetNumPartyMembers() == 0 then return end
     petScanTimer = petScanTimer + arg1
+    -- Periodic cache flush to reduce GC pressure during long fights
+    _cacheFlushTimer = _cacheFlushTimer + arg1
+    if _cacheFlushTimer >= CACHE_FLUSH_INTERVAL then
+        _cacheFlushTimer = 0
+        _lowerCache = {}
+    end
     if petScanTimer >= PET_SCAN_INTERVAL then
         petScanTimer = 0
         P.ScanGroupPets()
@@ -1083,7 +1111,11 @@ bus:SetScript("OnEvent", function()
         if P.combatState then P.combatState:OnCombatStart() end
     elseif event == "PLAYER_REGEN_ENABLED" then
         if P.combatState then P.combatState:OnCombatEnd() end
-        -- Clean up negative pet cache (allows re-evaluation next combat)
+        -- Clean up per-combat caches to free memory
         bus._notPetGUIDs = {}
+        -- Clear missed-event dedup cache (bounded by MISSED_MAX but dedup keys grow unbounded)
+        missedSeen = {}
+        -- Clear lowercase string cache (will rebuild quickly next combat)
+        _lowerCache = {}
     end
 end)

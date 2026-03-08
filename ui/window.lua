@@ -330,8 +330,8 @@ function P.ShowBarTooltip(bar)
             string.format("%.1f", data.damage_total / playerDur))
 
         totalValue = data.damage_total
-        for spellName, sp in pairs(data.damage_spells) do
-            table.insert(spells, { name = spellName, data = sp })
+        for key, sp in pairs(data.damage_spells) do
+            table.insert(spells, { name = sp.name or key, data = sp })
         end
         table.sort(spells, function(a, b) return a.data.total > b.data.total end)
     else
@@ -362,8 +362,8 @@ function P.ShowBarTooltip(bar)
         end
 
         totalValue = data.heal_effective
-        for spellName, sp in pairs(data.heal_spells) do
-            table.insert(spells, { name = spellName, data = sp })
+        for key, sp in pairs(data.heal_spells) do
+            table.insert(spells, { name = sp.name or key, data = sp })
         end
         table.sort(spells, function(a, b)
             return a.data.effective > b.data.effective

@@ -65,7 +65,7 @@ end
 -- Internal: apply damage to a single segment
 ---------------------------------------------------------------------------
 
-local function ApplyDamage(seg, source, spellName, amount, crit, periodic)
+local function ApplyDamage(seg, source, spellName, amount, crit, periodic, spellID)
     local p = seg.players[source]
     if not p then
         p = NewPlayerEntry()
@@ -77,10 +77,12 @@ local function ApplyDamage(seg, source, spellName, amount, crit, periodic)
     if p.first_action == 0 then p.first_action = now end
     p.last_action = now
 
-    if not p.damage_spells[spellName] then
-        p.damage_spells[spellName] = { total = 0, hits = 0, crits = 0, ticks = 0, min = 999999, max = 0 }
+    -- Key by spellID (number) when available, fallback to spellName for CHAT_MSG events
+    local key = (spellID and spellID > 0) and spellID or spellName
+    if not p.damage_spells[key] then
+        p.damage_spells[key] = { name = spellName, total = 0, hits = 0, crits = 0, ticks = 0, min = 999999, max = 0 }
     end
-    local sp = p.damage_spells[spellName]
+    local sp = p.damage_spells[key]
     sp.total = sp.total + amount
     sp.hits = sp.hits + 1
     if periodic then sp.ticks = (sp.ticks or 0) + 1 end
@@ -93,7 +95,7 @@ end
 -- Internal: apply healing to a single segment
 ---------------------------------------------------------------------------
 
-local function ApplyHeal(seg, source, spellName, amount, overheal, crit, periodic)
+local function ApplyHeal(seg, source, spellName, amount, overheal, crit, periodic, spellID)
     local p = seg.players[source]
     if not p then
         p = NewPlayerEntry()
@@ -108,10 +110,12 @@ local function ApplyHeal(seg, source, spellName, amount, overheal, crit, periodi
     if p.first_action == 0 then p.first_action = now end
     p.last_action = now
 
-    if not p.heal_spells[spellName] then
-        p.heal_spells[spellName] = { total = 0, effective = 0, overheal = 0, hits = 0, crits = 0, ticks = 0 }
+    -- Key by spellID (number) when available, fallback to spellName for CHAT_MSG events
+    local key = (spellID and spellID > 0) and spellID or spellName
+    if not p.heal_spells[key] then
+        p.heal_spells[key] = { name = spellName, total = 0, effective = 0, overheal = 0, hits = 0, crits = 0, ticks = 0 }
     end
-    local sp = p.heal_spells[spellName]
+    local sp = p.heal_spells[key]
     sp.total = sp.total + amount
     sp.effective = sp.effective + effective
     sp.overheal = sp.overheal + (overheal or 0)
@@ -124,20 +128,20 @@ end
 -- Public: Add damage (writes to both segments)
 ---------------------------------------------------------------------------
 
-function DS:AddDamage(source, target, spellName, amount, crit, periodic)
+function DS:AddDamage(source, target, spellName, amount, crit, periodic, spellID)
     if not source or not spellName then return end
-    ApplyDamage(self.current, source, spellName, amount, crit, periodic)
-    ApplyDamage(self.overall, source, spellName, amount, crit, periodic)
+    ApplyDamage(self.current, source, spellName, amount, crit, periodic, spellID)
+    ApplyDamage(self.overall, source, spellName, amount, crit, periodic, spellID)
 end
 
 ---------------------------------------------------------------------------
 -- Public: Add healing (writes to both segments)
 ---------------------------------------------------------------------------
 
-function DS:AddHeal(source, target, spellName, amount, overheal, crit, periodic)
+function DS:AddHeal(source, target, spellName, amount, overheal, crit, periodic, spellID)
     if not source or not spellName then return end
-    ApplyHeal(self.current, source, spellName, amount, overheal, crit, periodic)
-    ApplyHeal(self.overall, source, spellName, amount, overheal, crit, periodic)
+    ApplyHeal(self.current, source, spellName, amount, overheal, crit, periodic, spellID)
+    ApplyHeal(self.overall, source, spellName, amount, overheal, crit, periodic, spellID)
 end
 
 ---------------------------------------------------------------------------

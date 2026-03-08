@@ -242,11 +242,13 @@ SlashCmdList["PARSEC"] = function(msg)
                 p.last_action = now
                 if spells then
                     for spName, sp in pairs(spells) do
+                        sp.name = spName
                         p.damage_spells[spName] = sp
                     end
                 end
                 if healSpells then
                     for spName, sp in pairs(healSpells) do
+                        sp.name = spName
                         p.heal_spells[spName] = sp
                     end
                 end

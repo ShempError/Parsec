@@ -30,7 +30,7 @@ local function OnDamage(data)
     -- (e.g. Plague Effect debuff ticking on raid members)
     if data.target and P.IsGroupMember(data.target) then return end
 
-    P.dataStore:AddDamage(source, data.target, data.spellName, data.amount, data.crit, data.periodic)
+    P.dataStore:AddDamage(source, data.target, data.spellName, data.amount, data.crit, data.periodic, data.spellID)
 end
 
 -- Register with event bus
