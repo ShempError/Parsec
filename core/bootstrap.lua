@@ -123,7 +123,9 @@ SlashCmdList["PARSEC"] = function(msg)
         pp.Print("--- Totem Cast Log ---")
         for i = 1, table.getn(pp.totemCastLog) do
             local entry = pp.totemCastLog[i]
+            if entry then
             pp.Print("  " .. (entry.caster or "?") .. " cast " .. (entry.spell or "?") .. (entry.totemGuid and (" -> " .. entry.totemGuid) or ""))
+            end
             count = count + 1
         end
         pp.Print("Total cached: " .. count)

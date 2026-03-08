@@ -127,6 +127,9 @@ Parsec/
 
 ### v0.5.4 (unreleased)
 
+### v0.5.3.2 (2026-03-08)
+- **Fix totem cast log crash** — `table.insert` sets `.n` on the array, but the in-place compaction (prune stale entries) only nil'd trailing slots without updating `.n`. `table.getn` then returned the stale length, causing iteration over nil entries → "attempt to index local 'entry'" spam. Fix: `table.setn` after compaction + nil-guard on iteration.
+
 ### v0.5.3.1 (2026-03-08)
 - **Fix totem damage not tracked for own character** — Searing Totem (and other totems) damage was missing from the caster's own damage view while other players could see it. Root cause: own-pet damage from Nampower `_OTHER` events was blanket-skipped, but the CHAT_MSG fallback doesn't fire reliably for TurtleWoW totems. Fix: allow totem damage through `_OTHER` events (creature name check) and skip totems in CHAT_MSG pet handlers to prevent double-counting.
 

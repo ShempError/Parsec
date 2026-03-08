@@ -263,7 +263,7 @@ function P.GetPetOwnerByGUID(guid)
     local creatureLower = string.lower(creatureName)
     for i = 1, table.getn(P.totemCastLog) do
         local entry = P.totemCastLog[i]
-        if not entry.totemGuid then
+        if entry and not entry.totemGuid then
             local spellLower = string.lower(entry.spell)
             if creatureLower == spellLower
                 or string.find(creatureLower, spellLower, 1, true)
@@ -661,10 +661,11 @@ local function OnSpellGo()
                     P.totemCastLog[writeIdx] = P.totemCastLog[i]
                 end
             end
-            -- Nil out trailing stale entries
+            -- Nil out trailing stale entries and fix array length
             for i = writeIdx + 1, table.getn(P.totemCastLog) do
                 P.totemCastLog[i] = nil
             end
+            table.setn(P.totemCastLog, writeIdx)
         end
     end
 end
